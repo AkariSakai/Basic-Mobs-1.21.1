@@ -12,21 +12,21 @@
 		"sources": "https://github.com/FabricMC/fabric-example-mod"
 	},
 	"license": "CC0-1.0",
-	"icon": "assets/tutorial-mod/icon.png",
+	"icon": "assets/basic-mobs-mod/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"net.akarisakai.tutorialmod.TutorialMod"
+			"net.akarisakai.basicmobsmod.BasicMobsMod"
 		],
 		"fabric-datagen": [
-			"net.akarisakai.tutorialmod.TutorialModDataGenerator"
+			"net.akarisakai.basicmobsmod.BasicMobsModDataGenerator"
 		],
 		"client": [
-			"net.akarisakai.tutorialmod.TutorialModClient"
+			"net.akarisakai.basicmobsmod.BasicMobsModClient"
 		]
 	},
 	"mixins": [
-		"tutorial-mod.mixins.json"
+		"basicmobs-mod.mixins.json"
 	],
 	"depends": {
 		"geckolib": ">=4.7.3",

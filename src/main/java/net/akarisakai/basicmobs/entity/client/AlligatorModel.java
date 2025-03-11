@@ -1,6 +1,6 @@
 package net.akarisakai.basicmobs.entity.client;
 
-import net.akarisakai.basicmobs.BasicMobs;
+import net.akarisakai.basicmobs.BasicMobsMod;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import software.bernie.geckolib.animatable.GeoAnimatable;
@@ -13,17 +13,17 @@ import software.bernie.geckolib.model.data.EntityModelData;
 public class AlligatorModel extends GeoModel {
     @Override
     public Identifier getModelResource(GeoAnimatable animatable) {
-        return Identifier.of(BasicMobs.MOD_ID, "geo/alligator.geo.json");
+        return Identifier.of(BasicMobsMod.MOD_ID, "geo/alligator.geo.json");
     }
 
     @Override
     public Identifier getTextureResource(GeoAnimatable animatable) {
-        return Identifier.of(BasicMobs.MOD_ID, "textures/entity/alligator.png");
+        return Identifier.of(BasicMobsMod.MOD_ID, "textures/entity/alligator.png");
     }
 
     @Override
     public Identifier getAnimationResource(GeoAnimatable animatable) {
-        return Identifier.of(BasicMobs.MOD_ID, "animations/alligator.animation.json");
+        return Identifier.of(BasicMobsMod.MOD_ID, "animations/alligator.animation.json");
     }
     @Override
     public void setCustomAnimations(GeoAnimatable animatable, long instanceId, AnimationState animationState) {

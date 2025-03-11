@@ -1,6 +1,6 @@
 {
 	"required": true,
-	"package": "net.akarisakai.tutorialmod.mixin",
+	"package": "net.akarisakai.basicmobsmod.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"ExampleMixin"

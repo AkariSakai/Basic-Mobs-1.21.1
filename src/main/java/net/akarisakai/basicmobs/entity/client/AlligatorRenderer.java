@@ -1,6 +1,6 @@
 package net.akarisakai.basicmobs.entity.client;
 
-import net.akarisakai.basicmobs.BasicMobs;
+import net.akarisakai.basicmobs.BasicMobsMod;
 import net.akarisakai.basicmobs.entity.custom.AlligatorEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRendererFactory;
@@ -15,7 +15,7 @@ public class AlligatorRenderer extends GeoEntityRenderer<AlligatorEntity> {
 
     @Override
     public Identifier getTexture(AlligatorEntity animatable) {
-        return Identifier.of(BasicMobs.MOD_ID, "textures/entity/alligator.png");
+        return Identifier.of(BasicMobsMod.MOD_ID, "textures/entity/alligator.png");
     }
 
     @Override
