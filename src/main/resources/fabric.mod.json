@@ -29,6 +29,7 @@
 		"tutorial-mod.mixins.json"
 	],
 	"depends": {
+		"geckolib": ">=4.7.3",
 		"fabricloader": ">=0.16.10",
 		"minecraft": "~1.21.1",
 		"java": ">=21",
