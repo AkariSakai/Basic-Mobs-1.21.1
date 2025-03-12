@@ -1,4 +1,4 @@
-package net.akarisakai.basicmobs;
+package net.akarisakai.basicmobsmod;
 
 import net.fabricmc.fabric.api.datagen.v1.DataGeneratorEntrypoint;
 import net.fabricmc.fabric.api.datagen.v1.FabricDataGenerator;

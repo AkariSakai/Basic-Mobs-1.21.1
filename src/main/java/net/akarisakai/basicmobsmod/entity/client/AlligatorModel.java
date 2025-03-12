@@ -1,6 +1,7 @@
-package net.akarisakai.basicmobs.entity.client;
+package net.akarisakai.basicmobsmod.entity.client;
 
-import net.akarisakai.basicmobs.BasicMobsMod;
+import net.akarisakai.basicmobsmod.BasicMobsMod;
+import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import software.bernie.geckolib.animatable.GeoAnimatable;
@@ -31,9 +32,25 @@ public class AlligatorModel extends GeoModel {
 
         if (head != null) {
             EntityModelData entityData = (EntityModelData) animationState.getData(DataTickets.ENTITY_MODEL_DATA);
-            ((GeoBone) head).setRotX(entityData.headPitch() * MathHelper.RADIANS_PER_DEGREE);
-            ((GeoBone) head).setRotY(((EntityModelData) entityData).netHeadYaw() * MathHelper.RADIANS_PER_DEGREE);
+
+            // Ensure animatable is an AlligatorEntity before modifying behavior
+            if (animatable instanceof AlligatorEntity alligator) {
+                boolean isInWater = alligator.isTouchingWater(); // Check if alligator is swimming
+
+                // Instead of adding on top of the current rotation, adjust relative to it
+                float targetRotX = entityData.headPitch() * MathHelper.RADIANS_PER_DEGREE;
+                float targetRotY = entityData.netHeadYaw() * MathHelper.RADIANS_PER_DEGREE;
+
+                if (isInWater) {
+                    // ✅ If swimming, blend rotation gently (25% effect to prevent animation conflicts)
+                    head.setRotX(MathHelper.lerp(0.1F, head.getRotX(), targetRotX * 0.25F));
+                    head.setRotY(MathHelper.lerp(0.1F, head.getRotY(), targetRotY * 0.25F));
+                } else {
+                    // ✅ If on land, apply full head tracking normally
+                    head.setRotX(MathHelper.lerp(0.3F, head.getRotX(), targetRotX));
+                    head.setRotY(MathHelper.lerp(0.3F, head.getRotY(), targetRotY));
+                }
+            }
         }
     }
-
 }

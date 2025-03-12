@@ -1,8 +1,8 @@
 {
 	"schemaVersion": 1,
-	"id": "tutorial-mod",
+	"id": "basicmobs-mod",
 	"version": "${version}",
-	"name": "Tutorial Mod",
+	"name": "Basic Mobs",
 	"description": "Story's End is a mod made by akarisakai",
 	"authors": [
 		"Akari!"

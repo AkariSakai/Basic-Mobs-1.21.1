@@ -1,4 +1,4 @@
-package net.akarisakai.basicmobs.mixin;
+package net.akarisakai.basicmobsmod.mixin;
 
 import net.minecraft.server.MinecraftServer;
 import org.spongepowered.asm.mixin.Mixin;

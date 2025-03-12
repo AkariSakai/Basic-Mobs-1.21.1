@@ -1,7 +1,7 @@
-package net.akarisakai.basicmobs;
+package net.akarisakai.basicmobsmod;
 
-import net.akarisakai.basicmobs.entity.ModEntities;
-import net.akarisakai.basicmobs.entity.client.AlligatorRenderer;
+import net.akarisakai.basicmobsmod.entity.ModEntities;
+import net.akarisakai.basicmobsmod.entity.client.AlligatorRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 

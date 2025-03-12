@@ -1,7 +1,7 @@
-package net.akarisakai.basicmobs.entity.client;
+package net.akarisakai.basicmobsmod.entity.client;
 
-import net.akarisakai.basicmobs.BasicMobsMod;
-import net.akarisakai.basicmobs.entity.custom.AlligatorEntity;
+import net.akarisakai.basicmobsmod.BasicMobsMod;
+import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.util.math.MatrixStack;
@@ -11,6 +11,7 @@ import software.bernie.geckolib.renderer.GeoEntityRenderer;
 public class AlligatorRenderer extends GeoEntityRenderer<AlligatorEntity> {
     public AlligatorRenderer(EntityRendererFactory.Context renderManager) {
         super(renderManager, new AlligatorModel());
+        this.shadowRadius = 0.7F;
     }
 
     @Override
