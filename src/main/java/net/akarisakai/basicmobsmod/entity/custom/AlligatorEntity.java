@@ -36,7 +36,8 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public boolean targetingUnderwater;
     public SwimNavigation waterNavigation;
     public MobNavigation landNavigation;
-
+    private int leaveWaterCooldown = 0;
+    public boolean leaveWater = false;
 
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
         super(entityType, world);
@@ -160,6 +161,21 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         super.tick();
         if (this.getWorld().isClient()) {
             this.setupAnimationStates();
+        }
+
+        if (!this.getWorld().isClient) {
+            if (leaveWaterCooldown <= 0) {
+                leaveWater = random.nextInt(3) == 0; // 1 in 3 chance to leave water
+                leaveWaterCooldown = 400; // Reset timer (20 seconds)
+                System.out.println("[Alligator] Decision made: leaveWater = " + leaveWater);
+            } else {
+                leaveWaterCooldown--;
+            }
+        }
+
+        // Handle navigation switch based on leaveWater state
+        if (leaveWater) {
+            this.navigation = this.landNavigation;
         }
     }
 
