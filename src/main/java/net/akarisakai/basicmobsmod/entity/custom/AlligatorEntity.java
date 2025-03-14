@@ -1,24 +1,17 @@
 package net.akarisakai.basicmobsmod.entity.custom;
 
 import net.akarisakai.basicmobsmod.entity.ModEntities;
-import net.akarisakai.basicmobsmod.entity.ai.AlligatorAttackGoal;
-import net.akarisakai.basicmobsmod.entity.ai.AlligatorMoveControl;
+import net.akarisakai.basicmobsmod.entity.ai.alligator.*;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.AnimationState;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
-import net.minecraft.entity.ai.NoPenaltyTargeting;
-import net.minecraft.entity.ai.control.MoveControl;
 import net.minecraft.entity.ai.goal.*;
-import net.minecraft.entity.ai.pathing.MobNavigation;
-import net.minecraft.entity.ai.pathing.Path;
-import net.minecraft.entity.ai.pathing.PathNodeType;
-import net.minecraft.entity.ai.pathing.SwimNavigation;
+import net.minecraft.entity.ai.pathing.*;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.PathAwareEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.ChickenEntity;
 import net.minecraft.entity.passive.PassiveEntity;
@@ -27,18 +20,13 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animatable.instance.SingletonAnimatableInstanceCache;
 import software.bernie.geckolib.animation.*;
-
-import java.util.EnumSet;
 
 public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private AnimatableInstanceCache cache = new SingletonAnimatableInstanceCache(this);
@@ -61,9 +49,9 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     protected void initGoals() {
         this.goalSelector.add(1, new AlligatorAttackGoal(this, 2, true));
-        this.goalSelector.add(2, new AlligatorEntity.WanderAroundOnSurfaceGoal(this, 1.0));
-        this.goalSelector.add(3, new AlligatorEntity.LeaveWaterGoal(this, 1.0));
-        //this.goalSelector.add(6, new AlligatorEntity.TargetAboveWaterGoal(this, 1.0, this.getWorld().getSeaLevel()));
+        this.goalSelector.add(2, new WanderAroundOnSurfaceGoal(this, 1.0));
+        this.goalSelector.add(3, new LeaveWaterGoal(this, 1.0));
+        this.goalSelector.add(6, new TargetAboveWaterGoal(this, 1.0, this.getWorld().getSeaLevel()));
         this.goalSelector.add(3, new FollowParentGoal(this, 1.10));
         this.goalSelector.add(4, new WanderAroundFarGoal(this, 1.00));
         this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
@@ -87,6 +75,10 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     public boolean isPushedByFluids() {
         return !this.isSwimming();
+    }
+
+    public void setNavigation(EntityNavigation navigation) {
+        this.navigation = navigation;
     }
 
     public boolean isTargetingUnderwater() {
@@ -135,7 +127,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         return this.isSwimming();
     }
 
-    protected boolean hasFinishedCurrentPath() {
+    public boolean hasFinishedCurrentPath() {
         Path path = this.getNavigation().getCurrentPath();
         if (path != null) {
             BlockPos blockPos = path.getTarget();
@@ -152,153 +144,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     public void setTargetingUnderwater(boolean targetingUnderwater) {
         this.targetingUnderwater = targetingUnderwater;
-    }
-
-
-    static class LeaveWaterGoal extends MoveToTargetPosGoal {
-        private final AlligatorEntity alligator;
-
-        public LeaveWaterGoal(AlligatorEntity alligator, double speed) {
-            super(alligator, speed, 8, 2);
-            this.alligator = alligator;
-        }
-
-        @Override
-        public boolean canStart() {
-            return super.canStart()
-                    && this.alligator.getWorld().isDay()
-                    && this.alligator.isTouchingWater()
-                    && this.alligator.getY() >= this.alligator.getWorld().getSeaLevel() - 3;
-        }
-
-        @Override
-        public boolean shouldContinue() {
-            return super.shouldContinue();
-        }
-
-        @Override
-        protected boolean isTargetPos(WorldView world, BlockPos pos) {
-            BlockPos blockPos = pos.up();
-            return world.isAir(blockPos) && world.isAir(blockPos.up()) ? world.getBlockState(pos).hasSolidTopSurface(world, pos, this.alligator) : false;
-        }
-
-        @Override
-        public void start() {
-            this.alligator.setTargetingUnderwater(false);
-            this.alligator.navigation = this.alligator.landNavigation;
-            super.start();
-        }
-
-        @Override
-        public void stop() {
-            super.stop();
-        }
-    }
-
-    static class TargetAboveWaterGoal extends Goal {
-        private final AlligatorEntity alligator;
-        private final double speed;
-        private final int minY;
-        private boolean foundTarget;
-
-        public TargetAboveWaterGoal(AlligatorEntity alligator, double speed, int minY) {
-            this.alligator = alligator;
-            this.speed = speed;
-            this.minY = minY;
-        }
-
-        @Override
-        public boolean canStart() {
-            return this.alligator.isTouchingWater() && this.alligator.getY() < this.minY - 2;
-        }
-
-        @Override
-        public boolean shouldContinue() {
-            return this.canStart() && !this.foundTarget;
-        }
-
-        @Override
-        public void tick() {
-            if (this.alligator.getY() < this.minY - 1 && (this.alligator.getNavigation().isIdle() || this.alligator.hasFinishedCurrentPath())) {
-                Vec3d vec3d = NoPenaltyTargeting.findTo(this.alligator, 4, 8, new Vec3d(this.alligator.getX(), this.minY - 1, this.alligator.getZ()), (float) (Math.PI / 2));
-                if (vec3d == null) {
-                    this.foundTarget = true;
-                    return;
-                }
-
-                this.alligator.getNavigation().startMovingTo(vec3d.x, vec3d.y, vec3d.z, this.speed);
-            }
-        }
-
-        @Override
-        public void start() {
-            this.alligator.setTargetingUnderwater(true);
-            this.foundTarget = false;
-        }
-
-        @Override
-        public void stop() {
-            this.alligator.setTargetingUnderwater(false);
-        }
-    }
-    static class WanderAroundOnSurfaceGoal extends Goal {
-        private final PathAwareEntity mob;
-        private double x;
-        private double y;
-        private double z;
-        private final double speed;
-        private final World world;
-
-        public WanderAroundOnSurfaceGoal(PathAwareEntity mob, double speed) {
-            this.mob = mob;
-            this.speed = speed;
-            this.world = mob.getWorld();
-            this.setControls(EnumSet.of(Goal.Control.MOVE));
-        }
-
-        @Override
-        public boolean canStart() {
-            if (this.world.isDay()) {
-                return false;
-            } else if (this.mob.isTouchingWater()) {
-                return false;
-            } else {
-                Vec3d vec3d = this.getWanderTarget();
-                if (vec3d == null) {
-                    return false;
-                } else {
-                    this.x = vec3d.x;
-                    this.y = vec3d.y;
-                    this.z = vec3d.z;
-                    return true;
-                }
-            }
-        }
-
-        @Override
-        public boolean shouldContinue() {
-            return !this.mob.getNavigation().isIdle();
-        }
-
-        @Override
-        public void start() {
-            this.mob.getNavigation().startMovingTo(this.x, this.y, this.z, this.speed);
-        }
-
-        @Nullable
-        private Vec3d getWanderTarget() {
-            Random random = this.mob.getRandom();
-            BlockPos blockPos = this.mob.getBlockPos();
-
-            for (int i = 0; i < 10; i++) {
-                BlockPos blockPos2 = blockPos.add(random.nextInt(20) - 10, 2 - random.nextInt(8), random.nextInt(20) - 10);
-                if (this.world.getBlockState(blockPos2).isOf(Blocks.WATER)) {
-                    return Vec3d.ofBottomCenter(blockPos2);
-                }
-            }
-
-            return null;
-        }
     }
 
     private void setupAnimationStates() {

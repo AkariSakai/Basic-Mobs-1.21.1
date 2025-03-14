@@ -1,4 +1,4 @@
-package net.akarisakai.basicmobsmod.entity.ai;
+package net.akarisakai.basicmobsmod.entity.ai.alligator;
 
 import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
 import net.minecraft.block.BlockState;
