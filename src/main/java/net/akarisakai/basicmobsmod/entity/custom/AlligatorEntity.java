@@ -1,6 +1,8 @@
 package net.akarisakai.basicmobsmod.entity.custom;
 
 import net.akarisakai.basicmobsmod.entity.ModEntities;
+import net.akarisakai.basicmobsmod.entity.ai.AlligatorAttackGoal;
+import net.akarisakai.basicmobsmod.entity.ai.AlligatorMoveControl;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.AnimationState;
 import net.minecraft.entity.EntityType;
@@ -43,7 +45,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     public final AnimationState idleAnimationState = new AnimationState();
     private int idleAnimationTimeout = 0;
-    boolean targetingUnderwater;
+    public boolean targetingUnderwater;
     public SwimNavigation waterNavigation;
     public MobNavigation landNavigation;
 
@@ -58,10 +60,10 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     @Override
     protected void initGoals() {
-        this.goalSelector.add(1, new AlligatorEntity.WanderAroundOnSurfaceGoal(this, 1.0));
-        this.goalSelector.add(1, new AlligatorAttackGoal(2, true));
-        this.goalSelector.add(5, new AlligatorEntity.LeaveWaterGoal(this, 1.0));
-        this.goalSelector.add(6, new AlligatorEntity.TargetAboveWaterGoal(this, 1.0, this.getWorld().getSeaLevel()));
+        this.goalSelector.add(1, new AlligatorAttackGoal(this, 2, true));
+        this.goalSelector.add(2, new AlligatorEntity.WanderAroundOnSurfaceGoal(this, 1.0));
+        this.goalSelector.add(3, new AlligatorEntity.LeaveWaterGoal(this, 1.0));
+        //this.goalSelector.add(6, new AlligatorEntity.TargetAboveWaterGoal(this, 1.0, this.getWorld().getSeaLevel()));
         this.goalSelector.add(3, new FollowParentGoal(this, 1.10));
         this.goalSelector.add(4, new WanderAroundFarGoal(this, 1.00));
         this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
@@ -75,7 +77,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 .add(EntityAttributes.GENERIC_MAX_HEALTH, 40)
                 .add(EntityAttributes.GENERIC_STEP_HEIGHT, 1)
                 .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.17)
-                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 1)
+                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 6)
                 .add(EntityAttributes.GENERIC_KNOCKBACK_RESISTANCE, 0.4)
                 .add(EntityAttributes.GENERIC_WATER_MOVEMENT_EFFICIENCY, 1.5)
                 .add(EntityAttributes.GENERIC_OXYGEN_BONUS, 20)
@@ -87,13 +89,21 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         return !this.isSwimming();
     }
 
-    boolean isTargetingUnderwater() {
+    public boolean isTargetingUnderwater() {
         if (this.targetingUnderwater) {
             return true;
         } else {
             LivingEntity livingEntity = this.getTarget();
             return livingEntity != null && livingEntity.isTouchingWater();
         }
+    }
+
+    public double getWaterSurfaceY() {
+        BlockPos pos = this.getBlockPos();
+        while (this.getWorld().getBlockState(pos).isOf(Blocks.WATER) && pos.getY() < this.getWorld().getTopY()) {
+            pos = pos.up();
+        }
+        return pos.getY() - 0.88f;
     }
 
     @Override
@@ -143,94 +153,8 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public void setTargetingUnderwater(boolean targetingUnderwater) {
         this.targetingUnderwater = targetingUnderwater;
     }
-    private class AlligatorAttackGoal extends MeleeAttackGoal {
-        private int ticks;
 
-        public AlligatorAttackGoal(double speed, boolean pauseWhenMobIdle) {
-            super(AlligatorEntity.this, speed, pauseWhenMobIdle);
-        }
 
-        @Override
-        public boolean canStart() {
-            return super.canStart() && canAlligatorAttackTarget(AlligatorEntity.this.getTarget());
-        }
-
-        @Override
-        public boolean shouldContinue() {
-            return super.shouldContinue() && canAlligatorAttackTarget(AlligatorEntity.this.getTarget());
-        }
-
-        private boolean canAlligatorAttackTarget(LivingEntity target) {
-            // Custom attack conditions for alligator (e.g., must be in water, certain range, etc.)
-            return target != null && target.isAlive();
-        }
-
-        @Override
-        public void start() {
-            super.start();
-            this.ticks = 0;
-        }
-
-        @Override
-        public void stop() {
-            super.stop();
-            AlligatorEntity.this.setAttacking(false);
-        }
-
-        @Override
-        public void tick() {
-            super.tick();
-            this.ticks++;
-            if (this.ticks >= 5 && this.getCooldown() < this.getMaxCooldown() / 2) {
-                AlligatorEntity.this.setAttacking(true);
-            } else {
-                AlligatorEntity.this.setAttacking(false);
-            }
-        }
-
-    }
-    static class AlligatorMoveControl extends MoveControl {
-        private final AlligatorEntity alligator;
-
-        public AlligatorMoveControl( AlligatorEntity alligator) {
-            super(alligator);
-            this.alligator = alligator;
-        }
-
-        @Override
-        public void tick() {
-            LivingEntity livingEntity = this.alligator.getTarget();
-            if (this.alligator.isTargetingUnderwater() && this.alligator.isTouchingWater()) {
-                if (livingEntity != null && livingEntity.getY() > this.alligator.getY() || this.alligator.targetingUnderwater) {
-                    this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, 0.002, 0.0));
-                }
-
-                if (this.state != MoveControl.State.MOVE_TO || this.alligator.getNavigation().isIdle()) {
-                    this.alligator.setMovementSpeed(0.0F);
-                    return;
-                }
-
-                double d = this.targetX - this.alligator.getX();
-                double e = this.targetY - this.alligator.getY();
-                double f = this.targetZ - this.alligator.getZ();
-                double g = Math.sqrt(d * d + e * e + f * f);
-                e /= g;
-                float h = (float)(MathHelper.atan2(f, d) * 180.0F / (float)Math.PI) - 90.0F;
-                this.alligator.setYaw(this.wrapDegrees(this.alligator.getYaw(), h, 90.0F));
-                this.alligator.bodyYaw = this.alligator.getYaw();
-                float i = (float)(this.speed * this.alligator.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
-                float j = MathHelper.lerp(0.125F, this.alligator.getMovementSpeed(), i);
-                this.alligator.setMovementSpeed(j);
-                this.alligator.setVelocity(this.alligator.getVelocity().add(j * d * 0.005, j * e * 0.1, j * f * 0.005));
-            } else {
-                if (!this.alligator.isOnGround()) {
-                    this.alligator.setVelocity(this.alligator.getVelocity().add(0.0,  0, 0.0));
-                }
-
-                super.tick();
-            }
-        }
-    }
     static class LeaveWaterGoal extends MoveToTargetPosGoal {
         private final AlligatorEntity alligator;
 
