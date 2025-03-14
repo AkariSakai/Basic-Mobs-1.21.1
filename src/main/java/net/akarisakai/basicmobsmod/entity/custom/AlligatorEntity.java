@@ -193,7 +193,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, "movementController", 0, this::movementIdlePredicate));
-        controllers.add(new AnimationController<>(this, "chaseController", 8, this::chasePredicate));
+        controllers.add(new AnimationController<>(this, "chaseController", 10, this::chasePredicate));
     }
 
     private <T extends GeoEntity> PlayState movementIdlePredicate(software.bernie.geckolib.animation.AnimationState<T> event) {
