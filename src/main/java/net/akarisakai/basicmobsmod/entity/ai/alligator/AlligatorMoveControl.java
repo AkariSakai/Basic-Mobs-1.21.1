@@ -1,14 +1,10 @@
 package net.akarisakai.basicmobsmod.entity.ai.alligator;
 
 import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.control.MoveControl;
 import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
 public class AlligatorMoveControl extends MoveControl {
@@ -28,28 +24,19 @@ public class AlligatorMoveControl extends MoveControl {
         World world = this.alligator.getWorld();
 
         if (this.alligator.isTouchingWater()) {
-            double targetY = (target != null) ? target.getY() : this.alligator.getWaterSurfaceY();
+            double targetY = (target != null) ? target.getY() : this.alligator.getWaterSurfaceY() + 0.2; // Add a small offset to raise above the surface
             double currentY = this.alligator.getY();
             double verticalSpeed = 0.02;
 
             // Adjust height to naturally float at the surface
-            if (currentY < targetY - 0.1) {
+            if (currentY < targetY - 0.2) {
                 this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
-            } else if (currentY > targetY + 0.1) {
+            } else if (currentY > targetY + 0.2) {
                 this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
             }
 
             if (target == null) {
-                // Check if the alligator is getting too close to the shore
-                BlockPos frontPos = new BlockPos((int) (this.alligator.getX() + swimDirectionX * 2), (int) this.alligator.getY(), (int) (this.alligator.getZ() + swimDirectionZ * 2));
-                BlockState frontBlock = world.getBlockState(frontPos);
-
-                if (!frontBlock.isOf(Blocks.WATER)) {
-                    // If there is no water in front of it, pick a new direction
-                    chooseNewDirection();
-                }
-
-                // If the current movement duration has ended, generate a new direction
+                // If there is no target, move randomly in the water
                 if (swimDuration <= 0) {
                     chooseNewDirection();
                     swimDuration = 80 + this.alligator.getRandom().nextInt(60); // 4 to 7 seconds
