@@ -64,7 +64,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public static DefaultAttributeContainer.Builder createAttributes() {
         return MobEntity.createMobAttributes()
                 .add(EntityAttributes.GENERIC_MAX_HEALTH, 40)
-                .add(EntityAttributes.GENERIC_STEP_HEIGHT, 1)
                 .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.17)
                 .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 6)
                 .add(EntityAttributes.GENERIC_KNOCKBACK_RESISTANCE, 0.4)
@@ -116,7 +115,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             if (this.canMoveVoluntarily() && this.isTouchingWater() && this.isTargetingUnderwater()) {
                 this.navigation = this.waterNavigation;
                 this.setSwimming(true);
-            } else if (!leaveWater) {  // Prevent switching back if it's leaving water
+            } else if (!leaveWater) {
                 this.navigation = this.landNavigation;
                 this.setSwimming(false);
             }
@@ -173,7 +172,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             }
         }
 
-        // Handle navigation switch based on leaveWater state
         if (leaveWater) {
             this.navigation = this.landNavigation;
         }
@@ -221,7 +219,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                                     .then("walk.transition", Animation.LoopType.PLAY_ONCE)
                                     .thenLoop("walk")
                     );
-                    controller.setAnimationSpeed(1.5); // Normal walk speed if no target
+                    controller.setAnimationSpeed(1.5 + (this.getVelocity().lengthSquared() * 10));
                 }
             }
             return PlayState.CONTINUE;
