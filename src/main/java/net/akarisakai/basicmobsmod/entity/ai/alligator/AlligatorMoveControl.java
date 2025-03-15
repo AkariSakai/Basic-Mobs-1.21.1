@@ -24,16 +24,40 @@ public class AlligatorMoveControl extends MoveControl {
         World world = this.alligator.getWorld();
 
         if (this.alligator.isTouchingWater()) {
-            double targetY = (target != null) ? target.getY() : this.alligator.getWaterSurfaceY() + 0.19; // Add a small offset to raise above the surface
-            double currentY = this.alligator.getY();
-            double verticalSpeed = 0.02;
+            if (target == null) {
+                double targetY = this.alligator.getWaterSurfaceY() + 0.22;
+                double currentY = this.alligator.getY();
+                double verticalSpeed = 0.015;
 
-            if (currentY < targetY - 0.2) {
-                this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
-            } else if (currentY > targetY + 0.2) {
-                this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
+                if (currentY < targetY - 0.2) {
+                    this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
+                } else if (currentY > targetY + 0.2) {
+                    this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
+                }
+            } else {
+                double dx = target.getX() - this.alligator.getX();
+                double dz = target.getZ() - this.alligator.getZ();
+                double horizontalDistance = dx * dx + dz * dz;
+                if (horizontalDistance > 9.0) {
+                    double targetY = this.alligator.getWaterSurfaceY() + 0.22;
+                    double currentY = this.alligator.getY();
+                    double verticalSpeed = 0.015;
+                    if (currentY < targetY - 0.2) {
+                        this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
+                    } else if (currentY > targetY + 0.2) {
+                        this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
+                    }
+                } else {
+                    double targetY = target.getY();
+                    double currentY = this.alligator.getY();
+                    double verticalSpeed = 0.025;
+                    if (currentY < targetY - 0.2) {
+                        this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
+                    } else if (currentY > targetY + 0.2) {
+                        this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
+                    }
+                }
             }
-
             if (target == null) {
                 if (swimDuration <= 0) {
                     chooseNewDirection();
@@ -42,12 +66,15 @@ public class AlligatorMoveControl extends MoveControl {
                     swimDuration--;
                 }
 
-                this.alligator.setVelocity(swimDirectionX * 0.1, this.alligator.getVelocity().y, swimDirectionZ * 0.1);
+                this.alligator.setVelocity(
+                        MathHelper.lerp(0.2, this.alligator.getVelocity().x, swimDirectionX * 0.15),
+                        this.alligator.getVelocity().y,
+                        MathHelper.lerp(0.2, this.alligator.getVelocity().z, swimDirectionZ * 0.15)
+                );
 
                 float desiredYaw = (float) (MathHelper.atan2(swimDirectionZ, swimDirectionX) * 180.0F / Math.PI) - 90.0F;
-                this.alligator.setYaw(this.wrapDegrees(this.alligator.getYaw(), desiredYaw, 5.0F));
+                this.alligator.setYaw(this.wrapDegrees(this.alligator.getYaw(), desiredYaw, 7.0F));
                 this.alligator.bodyYaw = this.alligator.getYaw();
-
             } else {
                 double d = this.targetX - this.alligator.getX();
                 double e = this.targetY - this.alligator.getY();
