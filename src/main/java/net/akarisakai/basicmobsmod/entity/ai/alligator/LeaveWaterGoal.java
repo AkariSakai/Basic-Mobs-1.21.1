@@ -44,4 +44,3 @@ public class LeaveWaterGoal extends MoveToTargetPosGoal {
         super.stop();
     }
 }
-

@@ -68,7 +68,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.17)
                 .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 6)
                 .add(EntityAttributes.GENERIC_KNOCKBACK_RESISTANCE, 0.4)
-                .add(EntityAttributes.GENERIC_WATER_MOVEMENT_EFFICIENCY, 1.5)
+                .add(EntityAttributes.GENERIC_WATER_MOVEMENT_EFFICIENCY, 0.8)
                 .add(EntityAttributes.GENERIC_OXYGEN_BONUS, 20)
                 .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 20);
     }
@@ -116,7 +116,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             if (this.canMoveVoluntarily() && this.isTouchingWater() && this.isTargetingUnderwater()) {
                 this.navigation = this.waterNavigation;
                 this.setSwimming(true);
-            } else {
+            } else if (!leaveWater) {  // Prevent switching back if it's leaving water
                 this.navigation = this.landNavigation;
                 this.setSwimming(false);
             }
@@ -193,7 +193,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, "movementController", 0, this::movementIdlePredicate));
-        controllers.add(new AnimationController<>(this, "chaseController", 10, this::chasePredicate));
+        controllers.add(new AnimationController<>(this, "chaseController", 8, this::chasePredicate));
     }
 
     private <T extends GeoEntity> PlayState movementIdlePredicate(software.bernie.geckolib.animation.AnimationState<T> event) {
