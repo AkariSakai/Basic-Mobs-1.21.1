@@ -25,6 +25,7 @@ public class AlligatorMoveControl extends MoveControl {
 
         if (this.alligator.isTouchingWater()) {
             if (target == null) {
+                // Pas de cible → L'alligator flotte près de la surface
                 double targetY = this.alligator.getWaterSurfaceY() + 0.22;
                 double currentY = this.alligator.getY();
                 double verticalSpeed = 0.015;
@@ -34,34 +35,12 @@ public class AlligatorMoveControl extends MoveControl {
                 } else if (currentY > targetY + 0.2) {
                     this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
                 }
-            } else {
-                double dx = target.getX() - this.alligator.getX();
-                double dz = target.getZ() - this.alligator.getZ();
-                double horizontalDistance = dx * dx + dz * dz;
-                if (horizontalDistance > 9.0) {
-                    double targetY = this.alligator.getWaterSurfaceY() + 0.22;
-                    double currentY = this.alligator.getY();
-                    double verticalSpeed = 0.015;
-                    if (currentY < targetY - 0.2) {
-                        this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
-                    } else if (currentY > targetY + 0.2) {
-                        this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
-                    }
-                } else {
-                    double targetY = target.getY();
-                    double currentY = this.alligator.getY();
-                    double verticalSpeed = 0.025;
-                    if (currentY < targetY - 0.2) {
-                        this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
-                    } else if (currentY > targetY + 0.2) {
-                        this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
-                    }
-                }
-            }
-            if (target == null) {
+
+                // Choix aléatoire d'une direction toutes les quelques secondes
                 if (swimDuration <= 0) {
                     chooseNewDirection();
                     swimDuration = 80 + this.alligator.getRandom().nextInt(60);
+                    System.out.println("[Alligator] Swimming randomly...");
                 } else {
                     swimDuration--;
                 }
@@ -75,7 +54,23 @@ public class AlligatorMoveControl extends MoveControl {
                 float desiredYaw = (float) (MathHelper.atan2(swimDirectionZ, swimDirectionX) * 180.0F / Math.PI) - 90.0F;
                 this.alligator.setYaw(this.wrapDegrees(this.alligator.getYaw(), desiredYaw, 7.0F));
                 this.alligator.bodyYaw = this.alligator.getYaw();
+
             } else {
+                // L'alligator a une cible → Il plonge vers elle
+                double dx = target.getX() - this.alligator.getX();
+                double dz = target.getZ() - this.alligator.getZ();
+                double horizontalDistance = dx * dx + dz * dz;
+
+                double targetY = target.getY();
+                double currentY = this.alligator.getY();
+                double verticalSpeed = 0.025;
+
+                if (currentY < targetY - 0.2) {
+                    this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
+                } else if (currentY > targetY + 0.2) {
+                    this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
+                }
+
                 double d = this.targetX - this.alligator.getX();
                 double e = this.targetY - this.alligator.getY();
                 double f = this.targetZ - this.alligator.getZ();
@@ -93,6 +88,8 @@ public class AlligatorMoveControl extends MoveControl {
                 this.alligator.setMovementSpeed(j);
 
                 this.alligator.setVelocity(this.alligator.getVelocity().add(j * d * 0.005, j * e * 0.05, j * f * 0.005));
+
+                System.out.println("[Alligator] Hunting target: " + target.getName().getString());
             }
         } else {
             super.tick();
