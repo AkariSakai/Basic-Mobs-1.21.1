@@ -28,6 +28,10 @@ public class EnterWaterGoal extends Goal {
     @Override
     public boolean canStart() {
         System.out.println("[EnterWaterGoal] Vérification du démarrage...");
+        if (alligator.getTarget() != null) {
+            System.out.println("[EnterWaterGoal] 🛑 Désactivé : L'alligator est en mode attaque !");
+            return false; // Désactiver si une cible est présente
+        }
 
         if (!world.isDay()) {
             System.out.println("[EnterWaterGoal] Échec : Ce n'est pas le jour.");
@@ -132,7 +136,8 @@ public class EnterWaterGoal extends Goal {
 
     @Override
     public boolean shouldContinue() {
-        return alligator.isAlive() && alligator.waterCooldown <= 0 && (!alligator.isTouchingWater() || swimmingTime > 0);
+        return alligator.isAlive() && alligator.waterCooldown <= 0 && (!alligator.isTouchingWater() || swimmingTime > 0) &&
+                this.alligator.getTarget() != null;
     }
 
     private BlockPos findNearbyWater() {

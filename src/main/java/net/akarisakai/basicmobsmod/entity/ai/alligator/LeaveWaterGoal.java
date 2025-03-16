@@ -86,6 +86,9 @@ public class LeaveWaterGoal extends Goal {
             isLeavingWater = false; // Fin du processus de sortie
         }
 
+        if (alligator.getTarget() != null)
+            return false;
+
         return continueGoal;
     }
 

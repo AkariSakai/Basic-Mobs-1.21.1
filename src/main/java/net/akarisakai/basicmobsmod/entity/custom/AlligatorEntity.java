@@ -62,6 +62,15 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 }
             }
         }
+        if (this.getTarget() != null) {
+            LivingEntity target = this.getTarget();
+
+            // Vérifie si la cible est sur la terre
+            if (!target.isTouchingWater() && this.isTouchingWater()) {
+                this.setNavigation(this.landNavigation); // Force la navigation terrestre
+                System.out.println("[Alligator] 🏃 Changement en LandNavigation pour attaquer !");
+            }
+        }
     }
 
     public void startLeavingWater() {
