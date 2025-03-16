@@ -138,7 +138,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 while (this.getWorld().getFluidState(waterSurfacePos).isStill()) {
                     waterSurfacePos = waterSurfacePos.up();
                 }
-                double waterSurfaceY = waterSurfacePos.getY() - 1.0 + (this.getHeight() * 0.25) + 0.5;
+                double waterSurfaceY = waterSurfacePos.getY() - 1.0 + (this.getHeight() * 0.25) + 0.6;
 
                 // this is to Check if the alligator is near the edge of the water
                 boolean nearEdge = !this.getWorld().getFluidState(this.getBlockPos().north()).isStill() ||
