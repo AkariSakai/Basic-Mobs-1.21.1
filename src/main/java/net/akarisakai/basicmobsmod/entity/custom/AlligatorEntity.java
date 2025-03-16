@@ -36,6 +36,10 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private boolean landBound;
     private BlockPos homePos;
 
+    private int dailyHuntCount = 0;
+    private long lastHuntDay = -1;
+    private static final int MAX_DAILY_HUNTS = 5;
+
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
         super(entityType, world);
     }
@@ -49,8 +53,8 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.goalSelector.add(6, new WanderOnLandGoal(this, 1.00, 10)); // Add this line
         this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
         this.goalSelector.add(8, new LookAroundGoal(this));
-        this.goalSelector.add(9, new ActiveTargetGoal<>(this, ChickenEntity.class, true));
-        this.goalSelector.add(10, new ActiveTargetGoal<>(this, SchoolingFishEntity.class, true));
+        this.goalSelector.add(9, new ActiveTargetGoal<>(this, ChickenEntity.class, true, this::canHunt));
+        this.goalSelector.add(10, new ActiveTargetGoal<>(this, SchoolingFishEntity.class, true, this::canHunt));
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
@@ -114,6 +118,12 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             this.setupAnimationStates();
         }
 
+        long currentDay = this.getWorld().getTimeOfDay() / 24000L;
+        if (currentDay != this.lastHuntDay) {
+            this.dailyHuntCount = 0;
+            this.lastHuntDay = currentDay;
+        }
+
         if (this.isTouchingWater()) {
             LivingEntity target = this.getTarget();
             if (target != null && target.isAlive() && target.isTouchingWater()) {
@@ -125,22 +135,22 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 double deltaY = targetY - this.getY();
                 double deltaZ = targetZ - this.getZ();
                 double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
-                double speed = 0.1; // this is for the speed
+                double speed = 0.1; // Adjust the speed as needed
 
-                // interpolate the velocity for smoother movement
+                // Interpolate the velocity for smoother movement
                 double newVelX = MathHelper.lerp(0.1, this.getVelocity().x, deltaX / distance * speed);
                 double newVelY = MathHelper.lerp(0.1, this.getVelocity().y, deltaY / distance * speed);
                 double newVelZ = MathHelper.lerp(0.1, this.getVelocity().z, deltaZ / distance * speed);
                 this.setVelocity(newVelX, newVelY, newVelZ);
             } else {
-                // slowly swim back up to 25% higher than the top of the water block
+                // Slowly swim back up to 25% higher than the top of the water block
                 BlockPos waterSurfacePos = this.getBlockPos().up();
                 while (this.getWorld().getFluidState(waterSurfacePos).isStill()) {
                     waterSurfacePos = waterSurfacePos.up();
                 }
                 double waterSurfaceY = waterSurfacePos.getY() - 1.0 + (this.getHeight() * 0.25) + 0.6;
 
-                // this is to Check if the alligator is near the edge of the water
+                // Check if the alligator is near the edge of the water
                 boolean nearEdge = !this.getWorld().getFluidState(this.getBlockPos().north()).isStill() ||
                         !this.getWorld().getFluidState(this.getBlockPos().south()).isStill() ||
                         !this.getWorld().getFluidState(this.getBlockPos().east()).isStill() ||
@@ -155,8 +165,24 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                     this.setVelocity(this.getVelocity().x, newVelY, this.getVelocity().z);
                 }
             }
+        } else {
+            // Handle land movement
+            this.setNoGravity(false); // Enable gravity for land movement
+            this.setVelocity(this.getVelocity().x, this.getVelocity().y, this.getVelocity().z);
         }
     }
+
+    private boolean canHunt(@Nullable LivingEntity target) {
+        if (target == null) {
+            return false;
+        }
+        if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
+            return false;
+        }
+        this.dailyHuntCount++;
+        return true;
+    }
+
     @Override
     public boolean isBreedingItem(ItemStack stack) {
         return false;
