@@ -8,14 +8,16 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.ai.goal.*;
-import net.minecraft.entity.ai.pathing.*;
+import net.minecraft.entity.ai.pathing.EntityNavigation;
+import net.minecraft.entity.ai.pathing.MobNavigation;
+import net.minecraft.entity.ai.pathing.PathNodeType;
+import net.minecraft.entity.ai.pathing.SwimNavigation;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.ChickenEntity;
 import net.minecraft.entity.passive.PassiveEntity;
-import net.minecraft.entity.passive.SchoolingFishEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.world.ServerWorld;
@@ -29,35 +31,64 @@ import software.bernie.geckolib.animatable.instance.SingletonAnimatableInstanceC
 import software.bernie.geckolib.animation.*;
 
 public class AlligatorEntity extends AnimalEntity implements GeoEntity {
-    private AnimatableInstanceCache cache = new SingletonAnimatableInstanceCache(this);
+    private final AnimatableInstanceCache cache = new SingletonAnimatableInstanceCache(this);
 
     public final AnimationState idleAnimationState = new AnimationState();
     private int idleAnimationTimeout = 0;
     public boolean targetingUnderwater;
     public SwimNavigation waterNavigation;
     public MobNavigation landNavigation;
-    private int leaveWaterCooldown = 0;
-    public boolean leaveWater = false;
+    public HybridNavigation hybridNavigation;
+    public int waterCooldown = 0;
+
+    public void startWaterCooldown() {
+        this.waterCooldown = 600; // 30 sec (600 ticks)
+        System.out.println("[Alligator] Cooldown activé : 30 secondes avant de retourner dans l'eau.");
+    }
+
+    public boolean isWaterCooldownOver() {
+        return this.waterCooldown <= 0;
+    }
+    @Override
+    public void tick() {
+        super.tick();
+        if (this.getWorld().isClient()) {
+            this.setupAnimationStates();
+        } else {
+            if (waterCooldown > 0) {
+                waterCooldown--;
+                if (waterCooldown % 20 == 0) { // Afficher toutes les secondes
+                    System.out.println("[Alligator] Cooldown avant retour à l'eau : " + waterCooldown / 20 + " sec");
+                }
+            }
+        }
+    }
+
+    public void startLeavingWater() {
+        this.setNavigation(this.hybridNavigation);
+        this.hybridNavigation.setLeavingWater(true);
+        System.out.println("[Alligator] Activation de la navigation hybride pour quitter l'eau !");
+    }
 
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
         super(entityType, world);
         this.moveControl = new AlligatorMoveControl(this);
-        this.setPathfindingPenalty(PathNodeType.WATER, 0.0F);
-        this.waterNavigation = new SwimNavigation(this, world);
-        this.landNavigation = new MobNavigation(this, world);
+        this.waterNavigation = new HybridSwimNavigation(this, world);
+        this.landNavigation = new WideMobNavigation(this, world);
+        this.hybridNavigation = new HybridNavigation(this, world);
     }
 
     @Override
     protected void initGoals() {
         this.goalSelector.add(1, new AlligatorAttackGoal(this, 2, true));
-        this.goalSelector.add(2, new WanderAroundOnSurfaceGoal(this, 1.0));
-        this.goalSelector.add(3, new LeaveWaterGoal(this, 1.0));
-        this.goalSelector.add(3, new FollowParentGoal(this, 1.10));
-        this.goalSelector.add(4, new WanderAroundFarGoal(this, 1.00));
-        this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
-        this.goalSelector.add(6, new LookAroundGoal(this));
+        this.goalSelector.add(2, new EnterWaterGoal(this));
+        this.goalSelector.add(3, new LeaveWaterGoal(this));
+        //this.goalSelector.add(6, new WanderAroundFarGoal(this, 1.0));
+        this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 6.0F));
+        this.goalSelector.add(8, new LookAroundGoal(this));
+
         this.goalSelector.add(3, new ActiveTargetGoal<>(this, ChickenEntity.class, true));
-        this.goalSelector.add(3, new ActiveTargetGoal<>(this, SchoolingFishEntity.class, true));
+        //this.goalSelector.add(3, new ActiveTargetGoal<>(this, SchoolingFishEntity.class, true));
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
@@ -72,10 +103,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 20);
     }
 
-    @Override
-    public boolean isPushedByFluids() {
-        return !this.isSwimming();
-    }
 
     public void setNavigation(EntityNavigation navigation) {
         this.navigation = navigation;
@@ -110,27 +137,10 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
 
     @Override
-    public void updateSwimming() {
-        if (!this.getWorld().isClient) {
-            if (this.canMoveVoluntarily() && this.isTouchingWater() && this.isTargetingUnderwater()) {
-                this.navigation = this.waterNavigation;
-                this.setSwimming(true);
-            } else if (!leaveWater) {
-                this.navigation = this.landNavigation;
-                this.setSwimming(false);
-            }
-        }
-    }
-
-    @Override
     public boolean isInSwimmingPose() {
         return this.isSwimming();
     }
 
-
-    public void setTargetingUnderwater(boolean targetingUnderwater) {
-        this.targetingUnderwater = targetingUnderwater;
-    }
 
     private void setupAnimationStates() {
         if (this.idleAnimationTimeout <= 0) {
@@ -138,52 +148,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             this.idleAnimationState.start(this.age);
         } else {
             --this.idleAnimationTimeout;
-        }
-    }
-
-    @Override
-    public void tick() {
-        super.tick();
-        if (this.getWorld().isClient()) {
-            this.setupAnimationStates();
-        }
-
-        if (!this.getWorld().isClient) {  // Server-side logic
-            LivingEntity target = this.getTarget();
-
-            boolean shouldLeaveWater = false;
-
-            // Check if the target is above water
-            if (target != null) {
-                boolean targetAboveWater = !target.isTouchingWater() && target.getY() > this.getWaterSurfaceY();
-                if (targetAboveWater) {
-                    shouldLeaveWater = true;
-                }
-            }
-
-            if (target != null) {
-                boolean targetInDifferentWaterSource = !this.isTouchingWater() && target.isTouchingWater();
-                if (targetInDifferentWaterSource) {
-                    shouldLeaveWater = true;
-                }
-            }
-
-            // If not forced by target, use random chance
-            if (!shouldLeaveWater) {
-                if (leaveWaterCooldown <= 0) {
-                    leaveWater = this.getRandom().nextInt(3) == 0; // 1 in 3 chance
-                    leaveWaterCooldown = 400; // Reset timer (20 seconds)
-                } else {
-                    leaveWaterCooldown--;
-                }
-            } else {
-                leaveWater = true;
-            }
-        }
-
-        // If leaving water, switch to land navigation
-        if (leaveWater) {
-            this.navigation = this.landNavigation;
         }
     }
 
