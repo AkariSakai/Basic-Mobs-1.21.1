@@ -36,10 +36,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private boolean landBound;
     private BlockPos homePos;
 
-    private int dailyHuntCount = 0;
-    private long lastHuntDay = -1;
-    private static final int MAX_DAILY_HUNTS = 5;
-
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
         super(entityType, world);
     }
@@ -111,6 +107,23 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         }
     }
 
+    private int dailyHuntCount = 0;
+    private long lastHuntDay = -1;
+    private static final int MAX_DAILY_HUNTS = 5;
+
+    // Update the canHunt method
+    private boolean canHunt(@Nullable LivingEntity target) {
+        if (target == null) {
+            return false;
+        }
+        if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
+            return false;
+        }
+        this.dailyHuntCount++;
+        return true;
+    }
+
+    // Update the tick method to reset the counter daily
     @Override
     public void tick() {
         super.tick();
@@ -170,17 +183,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             this.setNoGravity(false); // Enable gravity for land movement
             this.setVelocity(this.getVelocity().x, this.getVelocity().y, this.getVelocity().z);
         }
-    }
-
-    private boolean canHunt(@Nullable LivingEntity target) {
-        if (target == null) {
-            return false;
-        }
-        if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
-            return false;
-        }
-        this.dailyHuntCount++;
-        return true;
     }
 
     @Override
