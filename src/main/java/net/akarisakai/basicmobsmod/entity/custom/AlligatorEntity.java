@@ -161,12 +161,18 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 }
             }
 
+            if (target != null) {
+                boolean targetInDifferentWaterSource = !this.isTouchingWater() && target.isTouchingWater();
+                if (targetInDifferentWaterSource) {
+                    shouldLeaveWater = true;
+                }
+            }
+
             // If not forced by target, use random chance
             if (!shouldLeaveWater) {
                 if (leaveWaterCooldown <= 0) {
-                    leaveWater = random.nextInt(3) == 0; // 1 in 3 chance
+                    leaveWater = this.getRandom().nextInt(3) == 0; // 1 in 3 chance
                     leaveWaterCooldown = 400; // Reset timer (20 seconds)
-                    System.out.println("[Alligator] Decision made: leaveWater = " + leaveWater);
                 } else {
                     leaveWaterCooldown--;
                 }

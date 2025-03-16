@@ -1,7 +1,6 @@
 package net.akarisakai.basicmobsmod.entity.ai.alligator;
 
 import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
-import net.minecraft.block.BlockState;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.control.MoveControl;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -61,9 +60,7 @@ public class AlligatorMoveControl extends MoveControl {
 
     private void leaveWater() {
         double yawRad = Math.toRadians(alligator.getYaw());
-        double forwardX = -Math.sin(yawRad) * 0.1;
-        double forwardZ = Math.cos(yawRad) * 0.1;
-        alligator.setVelocity(alligator.getVelocity().add(forwardX, 0.1, forwardZ));
+        alligator.setVelocity(alligator.getVelocity().add(-Math.sin(yawRad) * 0.1, 0.1, Math.cos(yawRad) * 0.1));
     }
 
     private void handleSwimRest() {
