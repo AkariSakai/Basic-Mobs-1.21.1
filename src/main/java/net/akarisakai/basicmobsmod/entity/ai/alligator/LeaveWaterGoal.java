@@ -15,10 +15,11 @@ public class LeaveWaterGoal extends MoveToTargetPosGoal {
 
     @Override
     public boolean canStart() {
-        return super.canStart()
-                && this.alligator.getWorld().isDay()
-                && this.alligator.isTouchingWater()
-                && this.alligator.getY() >= this.alligator.getWorld().getSeaLevel() - 3;
+        BlockPos frontBlockPos = this.alligator.getBlockPos().offset(this.alligator.getMovementDirection());
+
+        return this.alligator.isTouchingWater() // Must be in water
+                && this.alligator.getY() < this.alligator.getWorld().getSeaLevel() - 2 // Below sea level -2
+                && this.alligator.getWorld().getBlockState(frontBlockPos).isSolidBlock(this.alligator.getWorld(), frontBlockPos); // Solid block in front
     }
 
     @Override
@@ -29,7 +30,7 @@ public class LeaveWaterGoal extends MoveToTargetPosGoal {
     @Override
     protected boolean isTargetPos(WorldView world, BlockPos pos) {
         BlockPos blockPos = pos.up();
-        return world.isAir(blockPos) && world.isAir(blockPos.up()) ? world.getBlockState(pos).hasSolidTopSurface(world, pos, this.alligator) : false;
+        return world.isAir(blockPos) && world.isAir(blockPos.up()) && world.getBlockState(pos).hasSolidTopSurface(world, pos, this.alligator);
     }
 
     @Override

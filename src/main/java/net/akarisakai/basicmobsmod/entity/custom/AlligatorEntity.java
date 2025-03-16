@@ -52,7 +52,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.goalSelector.add(1, new AlligatorAttackGoal(this, 2, true));
         this.goalSelector.add(2, new WanderAroundOnSurfaceGoal(this, 1.0));
         this.goalSelector.add(3, new LeaveWaterGoal(this, 1.0));
-        this.goalSelector.add(6, new TargetAboveWaterGoal(this, 1.0, this.getWorld().getSeaLevel()));
         this.goalSelector.add(3, new FollowParentGoal(this, 1.10));
         this.goalSelector.add(4, new WanderAroundFarGoal(this, 1.00));
         this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
@@ -66,6 +65,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 .add(EntityAttributes.GENERIC_MAX_HEALTH, 40)
                 .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.17)
                 .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 6)
+                .add(EntityAttributes.GENERIC_ATTACK_SPEED, 0.8)
                 .add(EntityAttributes.GENERIC_KNOCKBACK_RESISTANCE, 0.4)
                 .add(EntityAttributes.GENERIC_WATER_MOVEMENT_EFFICIENCY, 0.8)
                 .add(EntityAttributes.GENERIC_OXYGEN_BONUS, 20)
@@ -127,20 +127,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         return this.isSwimming();
     }
 
-    public boolean hasFinishedCurrentPath() {
-        Path path = this.getNavigation().getCurrentPath();
-        if (path != null) {
-            BlockPos blockPos = path.getTarget();
-            if (blockPos != null) {
-                double d = this.squaredDistanceTo(blockPos.getX(), blockPos.getY(), blockPos.getZ());
-                if (d < 4.0) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
 
     public void setTargetingUnderwater(boolean targetingUnderwater) {
         this.targetingUnderwater = targetingUnderwater;
@@ -162,16 +148,34 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             this.setupAnimationStates();
         }
 
-        if (!this.getWorld().isClient) {
-            if (leaveWaterCooldown <= 0) {
-                leaveWater = random.nextInt(3) == 0; // 1 in 3 chance to leave water
-                leaveWaterCooldown = 400; // Reset timer (20 seconds)
-                System.out.println("[Alligator] Decision made: leaveWater = " + leaveWater);
+        if (!this.getWorld().isClient) {  // Server-side logic
+            LivingEntity target = this.getTarget();
+
+            boolean shouldLeaveWater = false;
+
+            // Check if the target is above water
+            if (target != null) {
+                boolean targetAboveWater = !target.isTouchingWater() && target.getY() > this.getWaterSurfaceY();
+                if (targetAboveWater) {
+                    shouldLeaveWater = true;
+                }
+            }
+
+            // If not forced by target, use random chance
+            if (!shouldLeaveWater) {
+                if (leaveWaterCooldown <= 0) {
+                    leaveWater = random.nextInt(3) == 0; // 1 in 3 chance
+                    leaveWaterCooldown = 400; // Reset timer (20 seconds)
+                    System.out.println("[Alligator] Decision made: leaveWater = " + leaveWater);
+                } else {
+                    leaveWaterCooldown--;
+                }
             } else {
-                leaveWaterCooldown--;
+                leaveWater = true;
             }
         }
 
+        // If leaving water, switch to land navigation
         if (leaveWater) {
             this.navigation = this.landNavigation;
         }

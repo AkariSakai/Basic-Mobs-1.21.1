@@ -1,9 +1,11 @@
 package net.akarisakai.basicmobsmod.entity.ai.alligator;
 
 import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.control.MoveControl;
 import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 
@@ -12,6 +14,8 @@ public class AlligatorMoveControl extends MoveControl {
     private int swimDuration = 0;
     private double swimDirectionX = 0;
     private double swimDirectionZ = 0;
+    private int restTimer = 0;
+    private boolean isDecelerating = false;
 
     public AlligatorMoveControl(AlligatorEntity alligator) {
         super(alligator);
@@ -20,85 +24,160 @@ public class AlligatorMoveControl extends MoveControl {
 
     @Override
     public void tick() {
-        LivingEntity target = this.alligator.getTarget();
-        World world = this.alligator.getWorld();
+        LivingEntity target = alligator.getTarget();
+        World world = alligator.getWorld();
 
-        if (this.alligator.isTouchingWater()) {
-            if (target == null) {
-                // Pas de cible → L'alligator flotte près de la surface
-                double targetY = this.alligator.getWaterSurfaceY() + 0.22;
-                double currentY = this.alligator.getY();
-                double verticalSpeed = 0.015;
-
-                if (currentY < targetY - 0.2) {
-                    this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
-                } else if (currentY > targetY + 0.2) {
-                    this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
-                }
-
-                // Choix aléatoire d'une direction toutes les quelques secondes
-                if (swimDuration <= 0) {
-                    chooseNewDirection();
-                    swimDuration = 80 + this.alligator.getRandom().nextInt(60);
-                    System.out.println("[Alligator] Swimming randomly...");
-                } else {
-                    swimDuration--;
-                }
-
-                this.alligator.setVelocity(
-                        MathHelper.lerp(0.2, this.alligator.getVelocity().x, swimDirectionX * 0.15),
-                        this.alligator.getVelocity().y,
-                        MathHelper.lerp(0.2, this.alligator.getVelocity().z, swimDirectionZ * 0.15)
-                );
-
-                float desiredYaw = (float) (MathHelper.atan2(swimDirectionZ, swimDirectionX) * 180.0F / Math.PI) - 90.0F;
-                this.alligator.setYaw(this.wrapDegrees(this.alligator.getYaw(), desiredYaw, 7.0F));
-                this.alligator.bodyYaw = this.alligator.getYaw();
-
-            } else {
-                // L'alligator a une cible → Il plonge vers elle
-                double dx = target.getX() - this.alligator.getX();
-                double dz = target.getZ() - this.alligator.getZ();
-                double horizontalDistance = dx * dx + dz * dz;
-
-                double targetY = target.getY();
-                double currentY = this.alligator.getY();
-                double verticalSpeed = 0.025;
-
-                if (currentY < targetY - 0.2) {
-                    this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
-                } else if (currentY > targetY + 0.2) {
-                    this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
-                }
-
-                double d = this.targetX - this.alligator.getX();
-                double e = this.targetY - this.alligator.getY();
-                double f = this.targetZ - this.alligator.getZ();
-                double g = Math.sqrt(d * d + f * f);
-                e /= g;
-
-                if (g > 0.1) {
-                    float h = (float) (MathHelper.atan2(f, d) * 180.0F / Math.PI) - 90.0F;
-                    this.alligator.setYaw(this.wrapDegrees(this.alligator.getYaw(), h, 5.0F));
-                    this.alligator.bodyYaw = this.alligator.getYaw();
-                }
-
-                float i = (float) (this.speed * this.alligator.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
-                float j = MathHelper.lerp(0.125F, this.alligator.getMovementSpeed(), i);
-                this.alligator.setMovementSpeed(j);
-
-                this.alligator.setVelocity(this.alligator.getVelocity().add(j * d * 0.005, j * e * 0.05, j * f * 0.005));
-
-                System.out.println("[Alligator] Hunting target: " + target.getName().getString());
-            }
+        if (alligator.isTouchingWater()) {
+            handleWaterMovement(target, world);
         } else {
             super.tick();
         }
     }
 
+    private void handleWaterMovement(LivingEntity target, World world) {
+        if (shouldLeaveWater()) {
+            leaveWater();
+            return;
+        }
+
+        if (restTimer > 0) {
+            restTimer--;
+            adjustVerticalPosition(alligator.getWaterSurfaceY() + 0.22, 0.015);
+            return;
+        }
+
+        if (target == null || alligator.squaredDistanceTo(target) > 9.0) {
+            adjustVerticalPosition(alligator.getWaterSurfaceY() + 0.22, 0.015);
+        } else {
+            adjustVerticalPosition(target.getY(), 0.025);
+        }
+
+        if (target == null || swimDuration > 10) {
+            handleSwimRest();
+        } else {
+            moveTowardTarget(target);
+        }
+    }
+
+    private void leaveWater() {
+        double yawRad = Math.toRadians(alligator.getYaw());
+        double forwardX = -Math.sin(yawRad) * 0.1;
+        double forwardZ = Math.cos(yawRad) * 0.1;
+        alligator.setVelocity(alligator.getVelocity().add(forwardX, 0.1, forwardZ));
+    }
+
+    private void handleSwimRest() {
+        if (swimDuration <= 0) {
+            if (alligator.getRandom().nextFloat() < 0.3) {
+                isDecelerating = true;
+            } else {
+                chooseNewDirection();
+                swimDuration = 80 + alligator.getRandom().nextInt(60);
+                isDecelerating = false;
+            }
+        } else {
+            swimDuration--;
+        }
+
+        if (isDecelerating) {
+            decelerate();
+        } else {
+            swim();
+        }
+    }
+
+    private void decelerate() {
+        alligator.setVelocity(alligator.getVelocity().multiply(0.85));
+        if (alligator.getVelocity().lengthSquared() < 0.001) {
+            isDecelerating = false;
+            restTimer = 60 + alligator.getRandom().nextInt(40);
+        }
+    }
+
+    private void swim() {
+        alligator.setVelocity(
+                MathHelper.lerp(0.2, alligator.getVelocity().x, swimDirectionX * 0.15),
+                alligator.getVelocity().y,
+                MathHelper.lerp(0.2, alligator.getVelocity().z, swimDirectionZ * 0.15)
+        );
+
+        float desiredYaw = (float) (MathHelper.atan2(swimDirectionZ, swimDirectionX) * 180.0F / Math.PI) - 90.0F;
+        alligator.setYaw(wrapDegrees(alligator.getYaw(), desiredYaw, 7.0F));
+        alligator.bodyYaw = alligator.getYaw();
+    }
+
+    private void moveTowardTarget(LivingEntity target) {
+        double dx = target.getX() - alligator.getX();
+        double dz = target.getZ() - alligator.getZ();
+        double horizontalDistance = dx * dx + dz * dz;
+
+        double targetY = target.getY();
+        double currentY = alligator.getY();
+        double verticalSpeed = 0.025;
+
+        if (currentY < targetY - 0.2) {
+            alligator.setVelocity(alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
+        } else if (currentY > targetY + 0.2) {
+            alligator.setVelocity(alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
+        }
+
+        double d = target.getX() - alligator.getX();
+        double e = target.getY() - alligator.getY();
+        double f = target.getZ() - alligator.getZ();
+        double g = Math.sqrt(d * d + f * f);
+        e /= g;
+
+        if (g > 0.1) {
+            float h = (float) (MathHelper.atan2(f, d) * 180.0F / Math.PI) - 90.0F;
+            alligator.setYaw(wrapDegrees(alligator.getYaw(), h, 5.0F));
+            alligator.bodyYaw = alligator.getYaw();
+        }
+
+        float movementSpeed = (float) (alligator.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
+        float movement = MathHelper.lerp(0.125F, alligator.getMovementSpeed(), movementSpeed);
+        alligator.setMovementSpeed(movement);
+
+        alligator.setVelocity(alligator.getVelocity().add(movement * d * 0.005, movement * e * 0.05, movement * f * 0.005));
+    }
+
+    private void adjustVerticalPosition(double targetY, double verticalSpeed) {
+        double currentY = alligator.getY();
+
+        if (currentY < targetY - 0.2) {
+            alligator.setVelocity(alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
+        } else if (currentY > targetY + 0.2) {
+            alligator.setVelocity(alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
+        }
+    }
+
     private void chooseNewDirection() {
-        float randomAngle = this.alligator.getRandom().nextFloat() * 360;
+        float randomAngle = alligator.getRandom().nextFloat() * 360;
         swimDirectionX = Math.cos(Math.toRadians(randomAngle));
         swimDirectionZ = Math.sin(Math.toRadians(randomAngle));
+    }
+
+    private boolean shouldLeaveWater() {
+        LivingEntity target = alligator.getTarget();
+        World world = alligator.getWorld();
+
+        if (!world.isDay() || (target != null && target.isTouchingWater())) {
+            return false;
+        }
+
+        BlockPos pos = alligator.getBlockPos();
+        BlockPos below = pos.down();
+        BlockPos above = pos.up();
+        BlockPos front = pos.offset(alligator.getMovementDirection());
+        BlockPos frontAbove = front.up();
+
+        return isBlockSolid(world, below) && isBlockAir(world, above) && isBlockSolid(world, front) && isBlockAir(world, frontAbove);
+    }
+
+    private boolean isBlockSolid(World world, BlockPos pos) {
+        return world.getBlockState(pos).isSolidBlock(world, pos);
+    }
+
+    private boolean isBlockAir(World world, BlockPos pos) {
+        return world.getBlockState(pos).isAir();
     }
 }
