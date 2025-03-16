@@ -44,8 +44,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public int waterCooldown;
 
     public void startWaterCooldown() {
-        this.waterCooldown = 600; // 30 sec (600 ticks)
-        System.out.println("[Alligator] Cooldown activé : 30 secondes avant de retourner dans l'eau.");
+        this.waterCooldown = 600;
     }
 
     public boolean isWaterCooldownOver() {
@@ -59,18 +58,13 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         } else {
             if (waterCooldown > 0) {
                 waterCooldown--;
-                if (waterCooldown % 20 == 0) { // Afficher toutes les secondes
-                    System.out.println("[Alligator] Cooldown avant retour à l'eau : " + waterCooldown / 20 + " sec");
-                }
             }
         }
         if (this.getTarget() != null) {
             LivingEntity target = this.getTarget();
 
-            // Vérifie si la cible est sur la terre
             if (!target.isTouchingWater() && this.isTouchingWater()) {
                 this.setNavigation(this.landNavigation); // Force la navigation terrestre
-                System.out.println("[Alligator] 🏃 Changement en LandNavigation pour attaquer !");
             }
         }
     }
@@ -78,7 +72,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public void startLeavingWater() {
         this.setNavigation(this.hybridNavigation);
         this.hybridNavigation.setLeavingWater(true);
-        System.out.println("[Alligator] Activation de la navigation hybride pour quitter l'eau !");
     }
 
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
@@ -87,7 +80,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.waterNavigation = new HybridSwimNavigation(this, world);
         this.landNavigation = new WideMobNavigation(this, world);
         this.hybridNavigation = new HybridNavigation(this, world);
-        this.waterCooldown = 100 /*+ this.getRandom().nextInt(501)*/;
+        this.waterCooldown = 100 + this.getRandom().nextInt(501);
     }
 
     @Override
@@ -117,7 +110,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
     @Override
     protected Box getAttackBox() {
-        return this.getBoundingBox().expand(1.3, 0.5, 1.3); // 🔥 Augmente la portée
+        return this.getBoundingBox().expand(1.3, 0.5, 1.3);
     }
 
     public void setNavigation(EntityNavigation navigation) {

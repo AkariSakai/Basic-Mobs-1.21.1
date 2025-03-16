@@ -54,9 +54,6 @@ public class AlligatorMoveControl extends MoveControl {
             adjustVerticalPosition(target.getY(), 0.025);
         }
 
-        // 🔥 Vérifie s'il y a un obstacle devant et saute
-
-
         if (target == null || swimDuration > 10) {
             handleSwimRest();
         } else {
@@ -66,7 +63,6 @@ public class AlligatorMoveControl extends MoveControl {
     }
     private boolean isBlockedByObstacle() {
         BlockPos frontPos = alligator.getBlockPos().offset(alligator.getMovementDirection());
-        BlockPos frontPos2 = frontPos.offset(alligator.getMovementDirection()); // 2 blocs devant
 
         return isSolid(frontPos);
     }
@@ -75,7 +71,6 @@ public class AlligatorMoveControl extends MoveControl {
                 alligator.getWorld().getBlockState(pos).isSolidBlock(alligator.getWorld(), pos);
     }
     private void jumpOverObstacle() {
-        System.out.println("[Alligator] 🔼 Bloc devant détecté, saut forcé !");
         alligator.setVelocity(alligator.getVelocity().x, 0.4, alligator.getVelocity().z);
     }
 
@@ -146,29 +141,22 @@ public class AlligatorMoveControl extends MoveControl {
         float movement = MathHelper.lerp(0.1F, alligator.getMovementSpeed(), movementSpeed);
         alligator.setMovementSpeed(movement);
 
-        // 🛠️ Descente plus douce vers la cible sous l'eau
-        double verticalSpeed = Math.max(Math.abs(e) * 0.03, 0.005); // Moins rapide
+        double verticalSpeed = Math.max(Math.abs(e) * 0.03, 0.005);
 
-        if (currentY > targetY + 0.5) { // 🔽 Descendre progressivement
-            double descentSpeed = -Math.min(verticalSpeed, 0.05); // Limite max
+        if (currentY > targetY + 0.5) {
+            double descentSpeed = -Math.min(verticalSpeed, 0.05);
             alligator.setVelocity(alligator.getVelocity().add(0.0, descentSpeed, 0.0));
-            System.out.println("[Alligator] 📉 Descente douce, vitesse: " + descentSpeed);
-        } else if (currentY < targetY - 0.5) { // 🔼 Remonter si trop bas
+        } else if (currentY < targetY - 0.5) {
             double ascentSpeed = Math.min(verticalSpeed, 0.03);
             alligator.setVelocity(alligator.getVelocity().add(0.0, ascentSpeed, 0.0));
-            System.out.println("[Alligator] 📈 Légère remontée !");
         }
 
-        // 🛠️ Empêcher la chute libre
         if (alligator.getVelocity().y < -0.08) {
-            alligator.setVelocity(alligator.getVelocity().multiply(1, 0.7, 1)); // Réduction progressive
-            System.out.println("[Alligator] ⏬ Correction de la descente !");
+            alligator.setVelocity(alligator.getVelocity().multiply(1, 0.7, 1));
         }
 
-        // Déplacement général vers la cible
         alligator.setVelocity(alligator.getVelocity().add(movement * d * 0.005, movement * e * 0.02, movement * f * 0.005));
 
-        // Vérifie s'il y a un obstacle devant
         if (isBlockedByObstacle()) {
             jumpOverObstacle();
         }
@@ -179,20 +167,16 @@ public class AlligatorMoveControl extends MoveControl {
     private void adjustVerticalPosition(double targetY, double verticalSpeed) {
         double currentY = alligator.getY();
 
-        if (currentY < targetY - 0.5) { // 🔽 Remonter lentement
-            double ascentSpeed = Math.min(verticalSpeed, 0.02); // Réduction de la vitesse de remontée
+        if (currentY < targetY - 0.5) {
+            double ascentSpeed = Math.min(verticalSpeed, 0.02);
             alligator.setVelocity(alligator.getVelocity().add(0.0, ascentSpeed, 0.0));
-            System.out.println("[Alligator] 🏊 Lente remontée naturelle !");
-        } else if (currentY > targetY + 0.2) { // 🔼 Éviter de trop flotter vers la surface
+        } else if (currentY > targetY + 0.2) {
             double descentSpeed = -Math.min(verticalSpeed, 0.02);
             alligator.setVelocity(alligator.getVelocity().add(0.0, descentSpeed, 0.0));
-            System.out.println("[Alligator] 📉 Ajustement vers le bas !");
         }
 
-        // 🌊 Ajoute un effet de flottement
         if (alligator.getVelocity().y > 0.03) {
             alligator.setVelocity(alligator.getVelocity().multiply(1, 0.6, 1)); // Réduction progressive
-            System.out.println("[Alligator] ⏬ Correction de la vitesse de montée !");
         }
     }
 

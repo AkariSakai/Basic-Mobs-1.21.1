@@ -47,7 +47,6 @@ public class AlligatorAttackGoal extends MeleeAttackGoal {
 
         if (alligator.getTarget() != null) {
             LivingEntity target = alligator.getTarget();
-            System.out.println("[Alligator] 🎯 Cible détectée après sortie de l'eau, recalcul du chemin vers " + target.getBlockPos());
 
             alligator.getNavigation().startMovingTo(target.getX(), target.getY(), target.getZ(), 1.5);
         }
