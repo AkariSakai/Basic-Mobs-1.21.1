@@ -42,12 +42,14 @@ public class AlligatorMoveControl extends MoveControl {
 
         if (restTimer > 0) {
             restTimer--;
-            adjustVerticalPosition(alligator.getWaterSurfaceY() + 0.22, 0.015);
+            adjustVerticalPosition(alligator.getWaterSurfaceY() + 0.48, 0.02);
+
             return;
         }
 
         if (target == null || alligator.squaredDistanceTo(target) > 9.0) {
-            adjustVerticalPosition(alligator.getWaterSurfaceY() + 0.22, 0.015);
+            adjustVerticalPosition(alligator.getWaterSurfaceY() + 0.48, 0.02);
+
         } else {
             adjustVerticalPosition(target.getY(), 0.025);
         }
@@ -125,49 +127,75 @@ public class AlligatorMoveControl extends MoveControl {
     private void moveTowardTarget(LivingEntity target) {
         double dx = target.getX() - alligator.getX();
         double dz = target.getZ() - alligator.getZ();
-        double horizontalDistance = dx * dx + dz * dz;
-
         double targetY = target.getY();
         double currentY = alligator.getY();
-        double verticalSpeed = 0.025;
-
-        if (currentY < targetY - 0.2) {
-            alligator.setVelocity(alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
-        } else if (currentY > targetY + 0.2) {
-            alligator.setVelocity(alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
-        }
+        double horizontalDistance = Math.sqrt(dx * dx + dz * dz);
 
         double d = target.getX() - alligator.getX();
-        double e = target.getY() - alligator.getY();
+        double e = targetY - currentY;
         double f = target.getZ() - alligator.getZ();
         double g = Math.sqrt(d * d + f * f);
-        e /= g;
 
         if (g > 0.1) {
-            float h = (float) (MathHelper.atan2(f, d) * 180.0F / Math.PI) - 90.0F;
-            alligator.setYaw(wrapDegrees(alligator.getYaw(), h, 5.0F));
+            float targetYaw = (float) (MathHelper.atan2(f, d) * 180.0F / Math.PI) - 90.0F;
+            alligator.setYaw(wrapDegrees(alligator.getYaw(), targetYaw, 5.0F));
             alligator.bodyYaw = alligator.getYaw();
         }
 
         float movementSpeed = (float) (alligator.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
-        float movement = MathHelper.lerp(0.125F, alligator.getMovementSpeed(), movementSpeed);
+        float movement = MathHelper.lerp(0.1F, alligator.getMovementSpeed(), movementSpeed);
         alligator.setMovementSpeed(movement);
 
-        alligator.setVelocity(alligator.getVelocity().add(movement * d * 0.005, movement * e * 0.05, movement * f * 0.005));
+        // 🛠️ Descente plus douce vers la cible sous l'eau
+        double verticalSpeed = Math.max(Math.abs(e) * 0.03, 0.005); // Moins rapide
+
+        if (currentY > targetY + 0.5) { // 🔽 Descendre progressivement
+            double descentSpeed = -Math.min(verticalSpeed, 0.05); // Limite max
+            alligator.setVelocity(alligator.getVelocity().add(0.0, descentSpeed, 0.0));
+            System.out.println("[Alligator] 📉 Descente douce, vitesse: " + descentSpeed);
+        } else if (currentY < targetY - 0.5) { // 🔼 Remonter si trop bas
+            double ascentSpeed = Math.min(verticalSpeed, 0.03);
+            alligator.setVelocity(alligator.getVelocity().add(0.0, ascentSpeed, 0.0));
+            System.out.println("[Alligator] 📈 Légère remontée !");
+        }
+
+        // 🛠️ Empêcher la chute libre
+        if (alligator.getVelocity().y < -0.08) {
+            alligator.setVelocity(alligator.getVelocity().multiply(1, 0.7, 1)); // Réduction progressive
+            System.out.println("[Alligator] ⏬ Correction de la descente !");
+        }
+
+        // Déplacement général vers la cible
+        alligator.setVelocity(alligator.getVelocity().add(movement * d * 0.005, movement * e * 0.02, movement * f * 0.005));
+
+        // Vérifie s'il y a un obstacle devant
         if (isBlockedByObstacle()) {
             jumpOverObstacle();
         }
     }
 
+
+
     private void adjustVerticalPosition(double targetY, double verticalSpeed) {
         double currentY = alligator.getY();
 
-        if (currentY < targetY - 0.2) {
-            alligator.setVelocity(alligator.getVelocity().add(0.0, verticalSpeed, 0.0));
-        } else if (currentY > targetY + 0.2) {
-            alligator.setVelocity(alligator.getVelocity().add(0.0, -verticalSpeed, 0.0));
+        if (currentY < targetY - 0.5) { // 🔽 Remonter lentement
+            double ascentSpeed = Math.min(verticalSpeed, 0.02); // Réduction de la vitesse de remontée
+            alligator.setVelocity(alligator.getVelocity().add(0.0, ascentSpeed, 0.0));
+            System.out.println("[Alligator] 🏊 Lente remontée naturelle !");
+        } else if (currentY > targetY + 0.2) { // 🔼 Éviter de trop flotter vers la surface
+            double descentSpeed = -Math.min(verticalSpeed, 0.02);
+            alligator.setVelocity(alligator.getVelocity().add(0.0, descentSpeed, 0.0));
+            System.out.println("[Alligator] 📉 Ajustement vers le bas !");
+        }
+
+        // 🌊 Ajoute un effet de flottement
+        if (alligator.getVelocity().y > 0.03) {
+            alligator.setVelocity(alligator.getVelocity().multiply(1, 0.6, 1)); // Réduction progressive
+            System.out.println("[Alligator] ⏬ Correction de la vitesse de montée !");
         }
     }
+
 
     private void chooseNewDirection() {
         float randomAngle = alligator.getRandom().nextFloat() * 360;

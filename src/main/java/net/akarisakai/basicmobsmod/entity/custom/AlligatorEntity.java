@@ -18,6 +18,7 @@ import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.ChickenEntity;
 import net.minecraft.entity.passive.PassiveEntity;
+import net.minecraft.entity.passive.SchoolingFishEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.world.ServerWorld;
@@ -39,7 +40,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public SwimNavigation waterNavigation;
     public MobNavigation landNavigation;
     public HybridNavigation hybridNavigation;
-    public int waterCooldown = 0;
+    public int waterCooldown;
 
     public void startWaterCooldown() {
         this.waterCooldown = 600; // 30 sec (600 ticks)
@@ -85,6 +86,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.waterNavigation = new HybridSwimNavigation(this, world);
         this.landNavigation = new WideMobNavigation(this, world);
         this.hybridNavigation = new HybridNavigation(this, world);
+        this.waterCooldown = 100 /*+ this.getRandom().nextInt(501)*/;
     }
 
     @Override
@@ -97,7 +99,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.goalSelector.add(8, new LookAroundGoal(this));
 
         this.goalSelector.add(3, new ActiveTargetGoal<>(this, ChickenEntity.class, true));
-        //this.goalSelector.add(3, new ActiveTargetGoal<>(this, SchoolingFishEntity.class, true));
+        this.goalSelector.add(3, new ActiveTargetGoal<>(this, SchoolingFishEntity.class, true));
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
