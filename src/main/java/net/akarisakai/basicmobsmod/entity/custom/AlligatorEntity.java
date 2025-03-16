@@ -83,7 +83,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.goalSelector.add(1, new AlligatorAttackGoal(this, 2, true));
         this.goalSelector.add(2, new EnterWaterGoal(this));
         this.goalSelector.add(3, new LeaveWaterGoal(this));
-        //this.goalSelector.add(6, new WanderAroundFarGoal(this, 1.0));
+        this.goalSelector.add(6, new WanderAroundFarGoal(this, 1.0));
         this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 6.0F));
         this.goalSelector.add(8, new LookAroundGoal(this));
 
