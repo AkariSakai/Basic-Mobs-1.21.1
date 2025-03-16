@@ -53,6 +53,4 @@ public class AlligatorAttackGoal extends MeleeAttackGoal {
         }
         alligator.setAttacking(this.ticks >= 5 && this.getCooldown() < this.getMaxCooldown() / 2);
     }
-
-
 }

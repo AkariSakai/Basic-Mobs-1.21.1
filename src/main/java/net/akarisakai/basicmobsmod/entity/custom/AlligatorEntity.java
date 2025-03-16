@@ -23,6 +23,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
@@ -107,13 +108,17 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 .add(EntityAttributes.GENERIC_MAX_HEALTH, 40)
                 .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.17)
                 .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 6)
+                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 6)
                 .add(EntityAttributes.GENERIC_ATTACK_SPEED, 0.8)
                 .add(EntityAttributes.GENERIC_KNOCKBACK_RESISTANCE, 0.4)
                 .add(EntityAttributes.GENERIC_WATER_MOVEMENT_EFFICIENCY, 0.8)
                 .add(EntityAttributes.GENERIC_OXYGEN_BONUS, 20)
                 .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 20);
     }
-
+    @Override
+    protected Box getAttackBox() {
+        return this.getBoundingBox().expand(1.3, 0.5, 1.3); // 🔥 Augmente la portée
+    }
 
     public void setNavigation(EntityNavigation navigation) {
         this.navigation = navigation;
