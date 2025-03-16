@@ -45,17 +45,12 @@ public class AlligatorAttackGoal extends MeleeAttackGoal {
         super.tick();
         this.ticks++;
 
-        LivingEntity target = alligator.getTarget();
-        if (target != null) {
-            // Vérifier si l'alligator ne suit plus le path
-            if (!alligator.getNavigation().isFollowingPath() || alligator.getNavigation().getCurrentPath() == null) {
-                System.out.println("[Alligator] ❗ Plus de chemin, recalcul vers " + target.getBlockPos());
+        if (alligator.getTarget() != null) {
+            LivingEntity target = alligator.getTarget();
+            System.out.println("[Alligator] 🎯 Cible détectée après sortie de l'eau, recalcul du chemin vers " + target.getBlockPos());
 
-                // 🔄 Recalcule le chemin vers la cible
-                alligator.getNavigation().startMovingTo(target.getX(), target.getY(), target.getZ(), 1.5);
-            }
+            alligator.getNavigation().startMovingTo(target.getX(), target.getY(), target.getZ(), 1.5);
         }
-
         alligator.setAttacking(this.ticks >= 5 && this.getCooldown() < this.getMaxCooldown() / 2);
     }
 
