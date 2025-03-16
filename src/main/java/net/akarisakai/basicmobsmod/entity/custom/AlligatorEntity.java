@@ -2,13 +2,12 @@ package net.akarisakai.basicmobsmod.entity.custom;
 
 import net.akarisakai.basicmobsmod.entity.ModEntities;
 import net.akarisakai.basicmobsmod.entity.ai.alligator.*;
-import net.minecraft.block.Blocks;
 import net.minecraft.entity.AnimationState;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.MovementType;
+import net.minecraft.entity.ai.control.MoveControl;
 import net.minecraft.entity.ai.goal.*;
-import net.minecraft.entity.ai.pathing.*;
+import net.minecraft.entity.ai.pathing.EntityNavigation;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.MobEntity;
@@ -20,7 +19,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
@@ -33,31 +32,25 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     public final AnimationState idleAnimationState = new AnimationState();
     private int idleAnimationTimeout = 0;
-    public boolean targetingUnderwater;
-    public SwimNavigation waterNavigation;
-    public MobNavigation landNavigation;
-    private int leaveWaterCooldown = 0;
-    public boolean leaveWater = false;
+    private boolean activelyTraveling;
+    private boolean landBound;
+    private BlockPos homePos;
 
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
         super(entityType, world);
-        this.moveControl = new AlligatorMoveControl(this);
-        this.setPathfindingPenalty(PathNodeType.WATER, 0.0F);
-        this.waterNavigation = new SwimNavigation(this, world);
-        this.landNavigation = new MobNavigation(this, world);
     }
 
     @Override
     protected void initGoals() {
         this.goalSelector.add(1, new AlligatorAttackGoal(this, 2, true));
-        this.goalSelector.add(2, new WanderAroundOnSurfaceGoal(this, 1.0));
-        this.goalSelector.add(3, new LeaveWaterGoal(this, 1.0));
         this.goalSelector.add(3, new FollowParentGoal(this, 1.10));
         this.goalSelector.add(4, new WanderAroundFarGoal(this, 1.00));
+        this.goalSelector.add(5, new WanderInWaterGoal(this, 1.00));
+        this.goalSelector.add(6, new WanderOnLandGoal(this, 1.00, 10)); // Add this line
         this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
-        this.goalSelector.add(6, new LookAroundGoal(this));
-        this.goalSelector.add(3, new ActiveTargetGoal<>(this, ChickenEntity.class, true));
-        this.goalSelector.add(3, new ActiveTargetGoal<>(this, SchoolingFishEntity.class, true));
+        this.goalSelector.add(8, new LookAroundGoal(this));
+        this.goalSelector.add(9, new ActiveTargetGoal<>(this, ChickenEntity.class, true));
+        this.goalSelector.add(10, new ActiveTargetGoal<>(this, SchoolingFishEntity.class, true));
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
@@ -72,64 +65,37 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 20);
     }
 
-    @Override
-    public boolean isPushedByFluids() {
-        return !this.isSwimming();
+    public boolean isLandBound() {
+        return landBound;
     }
 
-    public void setNavigation(EntityNavigation navigation) {
-        this.navigation = navigation;
+    public void setLandBound(boolean landBound) {
+        this.landBound = landBound;
     }
 
-    public boolean isTargetingUnderwater() {
-        if (this.targetingUnderwater) {
-            return true;
-        } else {
-            LivingEntity livingEntity = this.getTarget();
-            return livingEntity != null && livingEntity.isTouchingWater();
-        }
+    public BlockPos getHomePos() {
+        return homePos;
     }
 
-    public double getWaterSurfaceY() {
-        BlockPos pos = this.getBlockPos();
-        while (this.getWorld().getBlockState(pos).isOf(Blocks.WATER) && pos.getY() < this.getWorld().getTopY()) {
-            pos = pos.up();
-        }
-        return pos.getY() - 0.88f;
+    public void setHomePos(BlockPos homePos) {
+        this.homePos = homePos;
     }
 
-    @Override
-    public void travel(Vec3d movementInput) {
-        if (this.isLogicalSideForUpdatingMovement() && this.isTouchingWater() && this.isTargetingUnderwater()) {
-            this.updateVelocity(0.06F, movementInput);
-            this.move(MovementType.SELF, this.getVelocity());
-            this.setVelocity(this.getVelocity().multiply(0.9));
-        } else {
-            super.travel(movementInput);
-        }
+    public boolean isActivelyTraveling() {
+        return activelyTraveling;
+    }
+
+    public void setActivelyTraveling(boolean activelyTraveling) {
+        this.activelyTraveling = activelyTraveling;
     }
 
     @Override
-    public void updateSwimming() {
-        if (!this.getWorld().isClient) {
-            if (this.canMoveVoluntarily() && this.isTouchingWater() && this.isTargetingUnderwater()) {
-                this.navigation = this.waterNavigation;
-                this.setSwimming(true);
-            } else if (!leaveWater) {
-                this.navigation = this.landNavigation;
-                this.setSwimming(false);
-            }
-        }
+    protected EntityNavigation createNavigation(World world) {
+        return new AlligatorSwimNavigation(this, world);
     }
 
-    @Override
-    public boolean isInSwimmingPose() {
-        return this.isSwimming();
-    }
-
-
-    public void setTargetingUnderwater(boolean targetingUnderwater) {
-        this.targetingUnderwater = targetingUnderwater;
+    protected MoveControl createMoveControl() {
+        return new AlligatorMoveControl(this);
     }
 
     private void setupAnimationStates() {
@@ -148,45 +114,49 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             this.setupAnimationStates();
         }
 
-        if (!this.getWorld().isClient) {  // Server-side logic
+        if (this.isTouchingWater()) {
             LivingEntity target = this.getTarget();
+            if (target != null && target.isAlive() && target.isTouchingWater()) {
+                // Swim smoothly towards the target's position
+                double targetX = target.getX();
+                double targetY = target.getY();
+                double targetZ = target.getZ();
+                double deltaX = targetX - this.getX();
+                double deltaY = targetY - this.getY();
+                double deltaZ = targetZ - this.getZ();
+                double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+                double speed = 0.1; // this is for the speed
 
-            boolean shouldLeaveWater = false;
-
-            // Check if the target is above water
-            if (target != null) {
-                boolean targetAboveWater = !target.isTouchingWater() && target.getY() > this.getWaterSurfaceY();
-                if (targetAboveWater) {
-                    shouldLeaveWater = true;
-                }
-            }
-
-            if (target != null) {
-                boolean targetInDifferentWaterSource = !this.isTouchingWater() && target.isTouchingWater();
-                if (targetInDifferentWaterSource) {
-                    shouldLeaveWater = true;
-                }
-            }
-
-            // If not forced by target, use random chance
-            if (!shouldLeaveWater) {
-                if (leaveWaterCooldown <= 0) {
-                    leaveWater = this.getRandom().nextInt(3) == 0; // 1 in 3 chance
-                    leaveWaterCooldown = 400; // Reset timer (20 seconds)
-                } else {
-                    leaveWaterCooldown--;
-                }
+                // interpolate the velocity for smoother movement
+                double newVelX = MathHelper.lerp(0.1, this.getVelocity().x, deltaX / distance * speed);
+                double newVelY = MathHelper.lerp(0.1, this.getVelocity().y, deltaY / distance * speed);
+                double newVelZ = MathHelper.lerp(0.1, this.getVelocity().z, deltaZ / distance * speed);
+                this.setVelocity(newVelX, newVelY, newVelZ);
             } else {
-                leaveWater = true;
-            }
-        }
+                // slowly swim back up to 25% higher than the top of the water block
+                BlockPos waterSurfacePos = this.getBlockPos().up();
+                while (this.getWorld().getFluidState(waterSurfacePos).isStill()) {
+                    waterSurfacePos = waterSurfacePos.up();
+                }
+                double waterSurfaceY = waterSurfacePos.getY() - 1.0 + (this.getHeight() * 0.25) + 0.5;
 
-        // If leaving water, switch to land navigation
-        if (leaveWater) {
-            this.navigation = this.landNavigation;
+                // this is to Check if the alligator is near the edge of the water
+                boolean nearEdge = !this.getWorld().getFluidState(this.getBlockPos().north()).isStill() ||
+                        !this.getWorld().getFluidState(this.getBlockPos().south()).isStill() ||
+                        !this.getWorld().getFluidState(this.getBlockPos().east()).isStill() ||
+                        !this.getWorld().getFluidState(this.getBlockPos().west()).isStill();
+
+                if (!nearEdge) {
+                    double currentY = this.getY();
+                    double deltaY = waterSurfaceY - currentY;
+                    double speed = 0.1;
+
+                    double newVelY = MathHelper.lerp(0.1, this.getVelocity().y, deltaY * speed);
+                    this.setVelocity(this.getVelocity().x, newVelY, this.getVelocity().z);
+                }
+            }
         }
     }
-
     @Override
     public boolean isBreedingItem(ItemStack stack) {
         return false;
@@ -249,7 +219,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             return PlayState.CONTINUE;
         }
     }
-
 
     private <T extends GeoEntity> PlayState chasePredicate(software.bernie.geckolib.animation.AnimationState<T> event) {
         if (this.isAttacking()) {
