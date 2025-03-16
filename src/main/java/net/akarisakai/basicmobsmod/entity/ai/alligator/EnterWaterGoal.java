@@ -27,24 +27,20 @@ public class EnterWaterGoal extends Goal {
 
     @Override
     public boolean canStart() {
-        System.out.println("[EnterWaterGoal] Vérification du démarrage...");
+
         if (alligator.getTarget() != null) {
-            System.out.println("[EnterWaterGoal] 🛑 Désactivé : L'alligator est en mode attaque !");
             return false; // Désactiver si une cible est présente
         }
 
         if (!world.isDay()) {
-            System.out.println("[EnterWaterGoal] Échec : Ce n'est pas le jour.");
             return false;
         }
 
         if (alligator.isTouchingWater()) {
-            System.out.println("[EnterWaterGoal] Échec : L'alligator est déjà dans l'eau.");
             return false;
         }
 
         if (!alligator.isWaterCooldownOver()) {
-            System.out.println("[EnterWaterGoal] Échec : Cooldown encore actif (" + alligator.waterCooldown / 20 + " sec restants).");
             return false;
         }
 

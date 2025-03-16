@@ -2,6 +2,7 @@ package net.akarisakai.basicmobsmod.entity.ai.alligator;
 
 import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
 import net.minecraft.block.Blocks;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.goal.Goal;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -23,8 +24,9 @@ public class LeaveWaterGoal extends Goal {
     @Override
     public boolean canStart() {
         boolean shouldStart = alligator.isTouchingWater() && !alligator.targetingUnderwater;
-        if (shouldStart) {
-            System.out.println("[Alligator] Cherche un endroit pour sortir de l'eau.");
+
+        if (alligator.getTarget() != null) {
+            return false; // Désactiver si une cible est présente
         }
         return shouldStart;
     }
@@ -90,6 +92,26 @@ public class LeaveWaterGoal extends Goal {
             return false;
 
         return continueGoal;
+    }
+
+    @Override
+    public void stop() {
+        System.out.println("[LeaveWaterGoal] ❌ Arrêt du goal, annulation de la navigation.");
+
+        // 🛑 Annule le déplacement actuel
+        alligator.getNavigation().stop();
+
+        // ✅ Remet à zéro les variables du goal
+        this.landPos = null;
+        this.isLeavingWater = false;
+
+        // 🔥 Recalcule immédiatement un chemin si une cible est présente
+        if (alligator.getTarget() != null) {
+            LivingEntity target = alligator.getTarget();
+            System.out.println("[Alligator] 🎯 Cible détectée après sortie de l'eau, recalcul du chemin vers " + target.getBlockPos());
+
+            alligator.getNavigation().startMovingTo(target.getX(), target.getY(), target.getZ(), 1.5);
+        }
     }
 
 

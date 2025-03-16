@@ -1,6 +1,7 @@
 package net.akarisakai.basicmobsmod.entity.ai.alligator;
 
 import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
+import net.minecraft.block.Blocks;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.control.MoveControl;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -51,11 +52,29 @@ public class AlligatorMoveControl extends MoveControl {
             adjustVerticalPosition(target.getY(), 0.025);
         }
 
+        // 🔥 Vérifie s'il y a un obstacle devant et saute
+
+
         if (target == null || swimDuration > 10) {
             handleSwimRest();
         } else {
+
             moveTowardTarget(target);
         }
+    }
+    private boolean isBlockedByObstacle() {
+        BlockPos frontPos = alligator.getBlockPos().offset(alligator.getMovementDirection());
+        BlockPos frontPos2 = frontPos.offset(alligator.getMovementDirection()); // 2 blocs devant
+
+        return isSolid(frontPos);
+    }
+    private boolean isSolid(BlockPos pos) {
+        return !alligator.getWorld().getBlockState(pos).isOf(Blocks.WATER) &&
+                alligator.getWorld().getBlockState(pos).isSolidBlock(alligator.getWorld(), pos);
+    }
+    private void jumpOverObstacle() {
+        System.out.println("[Alligator] 🔼 Bloc devant détecté, saut forcé !");
+        alligator.setVelocity(alligator.getVelocity().x, 0.4, alligator.getVelocity().z);
     }
 
     private void leaveWater() {
@@ -135,6 +154,9 @@ public class AlligatorMoveControl extends MoveControl {
         alligator.setMovementSpeed(movement);
 
         alligator.setVelocity(alligator.getVelocity().add(movement * d * 0.005, movement * e * 0.05, movement * f * 0.005));
+        if (isBlockedByObstacle()) {
+            jumpOverObstacle();
+        }
     }
 
     private void adjustVerticalPosition(double targetY, double verticalSpeed) {
