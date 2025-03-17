@@ -2,6 +2,7 @@ package net.akarisakai.basicmobsmod.entity.client;
 
 import net.akarisakai.basicmobsmod.BasicMobsMod;
 import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import software.bernie.geckolib.animatable.GeoAnimatable;
@@ -45,6 +46,21 @@ public class AlligatorModel extends GeoModel {
                 } else {
                     head.setRotX(MathHelper.lerp(0.3F, head.getRotX(), targetRotX));
                     head.setRotY(MathHelper.lerp(0.3F, head.getRotY(), targetRotY));
+                }
+
+                // Blend custom animations with target tracking
+                LivingEntity target = alligator.getTarget();
+                if (target != null && target.isAlive()) {
+                    double deltaX = target.getX() - alligator.getX();
+                    double deltaY = target.getEyeY() - alligator.getEyeY();
+                    double deltaZ = target.getZ() - alligator.getZ();
+                    double distance = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+
+                    float lookYaw = (float) (MathHelper.atan2(deltaZ, deltaX) * (180F / Math.PI)) - 90F;
+                    float lookPitch = (float) -(MathHelper.atan2(deltaY, distance) * (180F / Math.PI));
+
+                    head.setRotY(MathHelper.lerp(0.1F, head.getRotY(), lookYaw * MathHelper.RADIANS_PER_DEGREE));
+                    head.setRotX(MathHelper.lerp(0.1F, head.getRotX(), lookPitch * MathHelper.RADIANS_PER_DEGREE));
                 }
             }
         }

@@ -891,7 +891,7 @@
 				},
 				"head": {
 					"rotation": {
-						"vector": ["Math.cos((query.anim_time - 0.0) * 280) * -4", "Math.cos((query.anim_time - 0.2) * 280) * 3", 0],
+						"vector": [0, "Math.cos((query.anim_time - 0.2) * 280) * 3", "Math.cos((query.anim_time - 0.0) * 280) * -4"],
 						"easing": "linear"
 					}
 				},
