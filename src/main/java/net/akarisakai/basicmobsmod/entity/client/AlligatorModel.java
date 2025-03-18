@@ -13,6 +13,7 @@ import software.bernie.geckolib.model.GeoModel;
 import software.bernie.geckolib.model.data.EntityModelData;
 
 public class AlligatorModel extends GeoModel {
+
     @Override
     public Identifier getModelResource(GeoAnimatable animatable) {
         return Identifier.of(BasicMobsMod.MOD_ID, "geo/alligator.geo.json");
@@ -27,6 +28,7 @@ public class AlligatorModel extends GeoModel {
     public Identifier getAnimationResource(GeoAnimatable animatable) {
         return Identifier.of(BasicMobsMod.MOD_ID, "animations/alligator.animation.json");
     }
+
     @Override
     public void setCustomAnimations(GeoAnimatable animatable, long instanceId, AnimationState animationState) {
         GeoBone head = getAnimationProcessor().getBone("head");
@@ -61,6 +63,17 @@ public class AlligatorModel extends GeoModel {
 
                     head.setRotY(MathHelper.lerp(0.3F, head.getRotY(), lookYaw * MathHelper.RADIANS_PER_DEGREE));
                     head.setRotX(MathHelper.lerp(0.3F, head.getRotX(), lookPitch * MathHelper.RADIANS_PER_DEGREE));
+                }
+
+                // Scale the head if the alligator is a child
+                if (alligator.isBaby()) {
+                    head.setScaleX(1.5F);
+                    head.setScaleY(1.5F);
+                    head.setScaleZ(1.5F); // Increase the size of the head by 50%
+                } else {
+                    head.setScaleX(1.0F);
+                    head.setScaleY(1.0F);
+                    head.setScaleZ(1.0F); // Reset to normal size if not a child
                 }
             }
         }

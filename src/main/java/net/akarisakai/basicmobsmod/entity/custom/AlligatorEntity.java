@@ -91,8 +91,13 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 this.getWorld().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.NEUTRAL, 1.0F, 1.0F);
                 this.triggerAnim("feedController", "eat"); // Trigger the feed animation
 
-                // Increment the daily hunt count
-                this.dailyHuntCount++;
+                // Set the daily hunt count to the maximum if the alligator is a baby
+                if (this.isBaby()) {
+                    this.dailyHuntCount = MAX_DAILY_HUNTS;
+                } else {
+                    // Increment the daily hunt count
+                    this.dailyHuntCount++;
+                }
 
                 // Check if the alligator is full
                 if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
@@ -238,7 +243,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         if (target == null || this.dailyHuntCount >= MAX_DAILY_HUNTS) {
             return false;
         }
-        this.dailyHuntCount++;
         return true;
     }
 
@@ -305,6 +309,28 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
 
     @Override
+    public boolean onKilledOther(ServerWorld world, LivingEntity other) {
+        boolean result = super.onKilledOther(world, other); // Call parent method
+
+        if (result) { // If the kill is valid
+            // Set the daily hunt count to the maximum if the alligator is a baby
+            if (this.isBaby()) {
+                this.dailyHuntCount = MAX_DAILY_HUNTS;
+            } else {
+                this.dailyHuntCount++;
+            }
+
+            // Show particles when the hunt limit is reached
+            if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
+                world.spawnParticles(ParticleTypes.HEART, this.getX(), this.getY() + 1.0, this.getZ(),
+                        5, 0.5, 0.5, 0.5, 0.0);
+            }
+        }
+
+        return result;
+    }
+
+    @Override
     public void writeCustomDataToNbt(NbtCompound nbt) {
         super.writeCustomDataToNbt(nbt);
         nbt.putInt("DailyHuntCount", this.dailyHuntCount);
@@ -317,6 +343,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.dailyHuntCount = nbt.getInt("DailyHuntCount");
         this.lastHuntDay = nbt.getLong("LastHuntDay");
     }
+
 
     @Override
     public boolean isBreedingItem(ItemStack stack) {

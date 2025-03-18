@@ -21,7 +21,7 @@ public class AlligatorBiteGoal extends Goal {
 
     @Override
     public boolean canStart() {
-        if (this.alligator.canHunt(null)) {
+        if (this.alligator.isBaby() || this.alligator.canHunt(null)) {
             return false;
         }
         this.target = this.alligator.getWorld().getClosestEntity(LivingEntity.class, targetPredicate, this.alligator, this.alligator.getX(), this.alligator.getEyeY(), this.alligator.getZ(), this.alligator.getBoundingBox().expand(this.range));
