@@ -25,6 +25,9 @@ public class AlligatorBiteGoal extends Goal {
             return false;
         }
         this.target = this.alligator.getWorld().getClosestEntity(LivingEntity.class, targetPredicate, this.alligator, this.alligator.getX(), this.alligator.getEyeY(), this.alligator.getZ(), this.alligator.getBoundingBox().expand(this.range));
+        if (this.target instanceof AlligatorEntity) {
+            return false;
+        }
         return this.target != null && this.target.canTakeDamage();
     }
 

@@ -23,7 +23,7 @@ public class AlligatorRenderer extends GeoEntityRenderer<AlligatorEntity> {
     public void render(AlligatorEntity entity, float entityYaw, float partialTick, MatrixStack poseStack,
                        VertexConsumerProvider bufferSource, int packedLight) {
         if(entity.isBaby()){
-            poseStack.scale(0.5f, 0.5f, 0.5f);
+            poseStack.scale(0.3f, 0.3f, 0.3f);
         }
         super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
     }
