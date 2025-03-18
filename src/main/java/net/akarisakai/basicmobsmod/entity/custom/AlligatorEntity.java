@@ -289,16 +289,18 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     public void tick() {
         super.tick();
+
+        // Ensure daily hunt count is reset before any checks happen
+        resetDailyHuntCount();
+
         if (this.getWorld().isClient()) {
             this.setupAnimationStates();
         }
 
-        resetDailyHuntCount();
-
         if (this.isTouchingWater()) {
             handleWaterMovement();
         } else {
-            this.setNoGravity(false); // Enable gravity for land movement
+            this.setNoGravity(false);
         }
     }
 
