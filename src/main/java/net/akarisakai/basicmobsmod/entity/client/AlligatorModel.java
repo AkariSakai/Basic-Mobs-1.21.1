@@ -59,8 +59,8 @@ public class AlligatorModel extends GeoModel {
                     float lookYaw = (float) (MathHelper.atan2(deltaZ, deltaX) * (180F / Math.PI)) - 90F;
                     float lookPitch = (float) -(MathHelper.atan2(deltaY, distance) * (180F / Math.PI));
 
-                    head.setRotY(MathHelper.lerp(0.1F, head.getRotY(), lookYaw * MathHelper.RADIANS_PER_DEGREE));
-                    head.setRotX(MathHelper.lerp(0.1F, head.getRotX(), lookPitch * MathHelper.RADIANS_PER_DEGREE));
+                    head.setRotY(MathHelper.lerp(0.3F, head.getRotY(), lookYaw * MathHelper.RADIANS_PER_DEGREE));
+                    head.setRotX(MathHelper.lerp(0.3F, head.getRotX(), lookPitch * MathHelper.RADIANS_PER_DEGREE));
                 }
             }
         }

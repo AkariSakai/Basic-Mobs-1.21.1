@@ -13,8 +13,7 @@
 			"bones": [
 				{
 					"name": "alligator",
-					"pivot": [0, 0, 10],
-					"rotation": [0, 0, 0]
+					"pivot": [0, 0, 10]
 				},
 				{
 					"name": "Body",
