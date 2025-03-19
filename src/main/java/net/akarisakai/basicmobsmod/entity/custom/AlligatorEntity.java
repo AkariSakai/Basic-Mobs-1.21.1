@@ -15,7 +15,6 @@ import net.minecraft.entity.mob.SkeletonHorseEntity;
 import net.minecraft.entity.passive.*;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.recipe.Ingredient;
@@ -46,17 +45,21 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private int dailyHuntCount = 0;
     private long lastHuntDay = -1;
     private static final int MAX_DAILY_HUNTS = 5;
+    private long lastFedTime = 0;
+    private int feedingDelay = 0;
+    private int feedingSoundDelay = 0;
 
     // Constructor
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
         super(entityType, world);
     }
 
+
     // Initialization Methods
     @Override
     protected void initGoals() {
         this.goalSelector.add(2, new AlligatorAttackGoal(this, 2, true));
-        this.goalSelector.add(1, new TemptGoal(this, 1.25, Ingredient.ofItems(Items.CHICKEN, Items.COOKED_CHICKEN, Items.SALMON, Items.COOKED_SALMON, Items.COD, Items.COOKED_COD), false));
+        this.goalSelector.add(1, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
         this.goalSelector.add(3, new FollowParentGoal(this, 1.10));
         this.goalSelector.add(4, new WanderAroundFarGoal(this, 1.00));
         this.goalSelector.add(5, new WanderInWaterGoal(this, 1.00));
@@ -64,12 +67,12 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
         this.goalSelector.add(8, new LookAroundGoal(this));
         this.goalSelector.add(9, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
-        this.goalSelector.add(11, new AlligatorBiteGoal(this, 2.0)); // Add the bite goal with a range of 2.0 blocks
+        this.goalSelector.add(11, new AlligatorBiteGoal(this, 2.0));
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
         return MobEntity.createMobAttributes()
-                .add(EntityAttributes.GENERIC_MAX_HEALTH, 40)
+                .add(EntityAttributes.GENERIC_MAX_HEALTH, 35)
                 .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.17)
                 .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 6)
                 .add(EntityAttributes.GENERIC_ATTACK_SPEED, 0.8)
@@ -85,24 +88,27 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         ItemStack itemStack = player.getStackInHand(hand);
 
         if (itemStack.isIn(ItemTags.MEAT)) {
+            long currentTime = this.getWorld().getTime(); // Get current world time (in ticks)
+
+            if (currentTime - lastFedTime < 30) {
+                return ActionResult.PASS; // Ignore feeding if still on cooldown
+            }
+
             if (!this.getWorld().isClient) {
                 this.eat(player, hand, itemStack);
-                this.heal(5.0F); // Heal the alligator by 5 health points
-                this.getWorld().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.NEUTRAL, 1.0F, 1.0F);
-                this.triggerAnim("feedController", "eat"); // Trigger the feed animation
+                this.heal(5.0F); // Heal the alligator by 5 HP
+                this.triggerAnim("feedController", "eat"); // Trigger feed animation
 
-                // Set the daily hunt count to the maximum if the alligator is a baby
+                // Set cooldown
+                lastFedTime = currentTime;
+                feedingSoundDelay = 16; // Sound plays at * ticks
+                feedingDelay = 25; // Hearts spawn at * ticks
+
+                // Update hunt count
                 if (this.isBaby()) {
                     this.dailyHuntCount = MAX_DAILY_HUNTS;
                 } else {
-                    // Increment the daily hunt count
                     this.dailyHuntCount++;
-                }
-
-                // Check if the alligator is full
-                if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
-                    // Spawn heart particles
-                    ((ServerWorld) this.getWorld()).spawnParticles(ParticleTypes.HEART, this.getX(), this.getY() + 1.0, this.getZ(), 5, 0.5, 0.5, 0.5, 0.0);
                 }
 
                 return ActionResult.SUCCESS;
@@ -283,7 +289,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             }
             waterSurfacePos = checkPos;
         }
-        double waterSurfaceY = waterSurfacePos.getY() + this.getHeight() * 0.25 + 0.25;
+        double waterSurfaceY = waterSurfacePos.getY() + this.getHeight() * 0.25 + (this.isBaby() ? 0.50 : 0.25);
         double deltaY = waterSurfaceY - this.getY();
         double newVelY = MathHelper.lerp(0.2, this.getVelocity().y, deltaY * 0.1);
         this.setVelocity(this.getVelocity().x, newVelY, this.getVelocity().z);
@@ -294,7 +300,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public void tick() {
         super.tick();
 
-        // Ensure daily hunt count is reset before any checks happen
         resetDailyHuntCount();
 
         if (this.getWorld().isClient()) {
@@ -305,6 +310,24 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             handleWaterMovement();
         } else {
             this.setNoGravity(false);
+        }
+
+        // Handle feeding sound delay (16 ticks)
+        if (feedingSoundDelay > 0) {
+            feedingSoundDelay--;
+            if (feedingSoundDelay == 0) {
+                this.getWorld().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.NEUTRAL, 1.2F, 1.0F);
+            }
+        }
+
+        // Handle heart particles delay (20 ticks), but only if it can't hunt anymore
+        if (feedingDelay > 0) {
+            feedingDelay--;
+            if (feedingDelay == 0 && !this.getWorld().isClient) {
+                if (this.dailyHuntCount >= MAX_DAILY_HUNTS) { // Only spawn hearts if it can't hunt anymore
+                    ((ServerWorld) this.getWorld()).spawnParticles(ParticleTypes.HEART, this.getX(), this.getY() + 1.0, this.getZ(), 5, 0.5, 0.5, 0.5, 0.0);
+                }
+            }
         }
     }
 
