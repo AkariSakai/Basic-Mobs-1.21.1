@@ -35,7 +35,8 @@ import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animatable.instance.SingletonAnimatableInstanceCache;
 import software.bernie.geckolib.animation.*;
 
-import java.util.*;
+import java.util.List;
+import java.util.Set;
 
 public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
@@ -47,7 +48,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private boolean landBound;
     private BlockPos homePos;
     private int ejectTimer = 0;
-    private final Map<UUID, Integer> babyRemountCooldowns = new HashMap<>();
+    private int remountCooldown = 0;
 
     // --- Hunt Tracking ---
     private int dailyHuntCount = 0;
@@ -74,9 +75,9 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     protected void initGoals() {
         // --- Attack & Targeting ---
-        this.goalSelector.add(1, new AlligatorAttackGoal(this, 2, true));
+        this.goalSelector.add(3, new AlligatorAttackGoal(this, 2, true));
         this.goalSelector.add(2, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
-        this.goalSelector.add(3, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
+        this.goalSelector.add(1, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
         this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
 
         // --- Movement & Navigation ---
@@ -161,17 +162,23 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
 
     private void tryMountParent() {
-        if (this.isBaby() && this.getVehicle() == null) {
-            // Check if this baby has an active cooldown
-            if (this.babyRemountCooldowns.containsKey(this.getUuid()) && this.babyRemountCooldowns.get(this.getUuid()) > 0) {
-                return; // Don't allow remounting if cooldown is active
-            }
+        if (!this.isBaby() || this.remountCooldown > 0 || this.hasVehicle()) {
+            return; // Ensure it's a baby and not in cooldown
+        }
 
-            for (Entity entity : this.getWorld().getEntitiesByClass(AlligatorEntity.class, this.getBoundingBox().expand(1.0), e -> e != this && !e.isBaby())) {
-                if (entity instanceof AlligatorEntity parentAlligator) {
-                    this.startRiding(parentAlligator);
-                    break;
-                }
+        List<AlligatorEntity> nearbyAdults = this.getWorld().getEntitiesByClass(
+                AlligatorEntity.class, this.getBoundingBox().expand(2.0), // Slightly increased range
+                adult -> !adult.isBaby() && adult.getPassengerList().size() < 3
+        );
+
+        if (!nearbyAdults.isEmpty()) {
+            AlligatorEntity closestAdult = nearbyAdults.stream()
+                    .min((a, b) -> Double.compare(this.squaredDistanceTo(a), this.squaredDistanceTo(b)))
+                    .orElse(null);
+
+            if (closestAdult != null) {
+                this.startRiding(closestAdult, true);
+                this.remountCooldown = 200; // Prevent immediate remounting after dismounting
             }
         }
     }
@@ -252,10 +259,10 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             controller.setAnimationSpeed(1.5);
             return PlayState.CONTINUE;
         }
-        if (controller.getCurrentAnimation() != null) {
-            return PlayState.CONTINUE;
-        }
-
+        controller.setAnimation(
+                RawAnimation.begin()
+                        .then("bite", Animation.LoopType.PLAY_ONCE)
+        );
         return PlayState.STOP;
     }
 
@@ -315,23 +322,23 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
             if (passenger instanceof AlligatorEntity babyAlligator && babyAlligator.isBaby()) {
                 babyAlligator.stopRiding();
-                babyAlligator.setVelocity(this.getVelocity().multiply(0.5));
 
-                // Apply remount cooldown to the ejected baby
-                this.babyRemountCooldowns.put(babyAlligator.getUuid(), 120);
-                ejectTimer = 20;
+                // Instead of instantly setting velocity, let it "jump" off naturally
+                babyAlligator.setVelocity(this.getVelocity().multiply(0.4).add(0, 0.3, 0));
+
+                babyAlligator.remountCooldown = 180; // Prevent it from immediately remounting
+                ejectTimer = 40; // Increased timer to prevent all babies ejecting instantly
             }
         }
     }
 
-    private void ejectAllBabies() {
-        for (Entity passenger : this.getPassengerList()) {
-            if (passenger instanceof AlligatorEntity babyAlligator && babyAlligator.isBaby()) {
-                babyAlligator.stopRiding();
-                babyAlligator.setVelocity(this.getVelocity().multiply(0.5));
-
-                // Apply cooldown
-                this.babyRemountCooldowns.put(babyAlligator.getUuid(), 120); // 5 seconds
+    private void ejectAllPassengers() {
+        List<Entity> passengers = this.getPassengerList();
+        for (Entity passenger : passengers) {
+            if (passenger instanceof AlligatorEntity baby && baby.isBaby()) {
+                baby.stopRiding();
+                baby.setVelocity(this.getVelocity().multiply(0.4).add(0, 0.3, 0));
+                baby.remountCooldown = 180; // Prevent remounting too soon
             }
         }
     }
@@ -362,14 +369,18 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             this.setupAnimationStates();
         }
 
-        // Reduce remount cooldowns
-        babyRemountCooldowns.entrySet().removeIf(entry -> entry.setValue(entry.getValue() - 1) <= 0);
+        if (remountCooldown > 0) {
+            remountCooldown--;
+        }
+
+        // If the alligator is in water and has a target, eject all passengers
+        if (this.hasPassengers() && this.getTarget() != null) {
+            ejectAllPassengers();
+        }
 
         if (this.isTouchingWater()) {
-            if (this.isBaby() && !this.hasVehicle()) {
-                if (!babyRemountCooldowns.containsKey(this.getUuid()) || babyRemountCooldowns.get(this.getUuid()) <= 0) {
-                    tryMountParent();
-                }
+            if (remountCooldown == 0) {
+                tryMountParent();
             }
             handleWaterMovement();
         } else {
@@ -391,8 +402,8 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             feedingDelay--;
             if (feedingDelay == 0 && !this.getWorld().isClient) {
                 if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
-                    ((ServerWorld) this.getWorld()).spawnParticles(ParticleTypes.HEART, this.getX(),
-                            this.getY() + 1.0, this.getZ(), 5, 0.5, 0.5, 0.5, 0.0);
+                    ((ServerWorld) this.getWorld()).spawnParticles(ParticleTypes.HEART,
+                            this.getX(), this.getY() + 1.0, this.getZ(), 3, 0.3, 0.3, 0.3, 0.1);
                 }
             }
         }
@@ -403,16 +414,12 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         boolean result = super.damage(source, amount);
 
         if (result) {
-            if (!this.isBaby()) {
-                ejectAllBabies(); // Parent gets hurt → eject all babies
-            } else {
-                this.stopRiding(); // Baby gets hurt → only eject itself
-                this.babyRemountCooldowns.put(this.getUuid(), 20);
-            }
+            ejectAllPassengers(); // Babies will dismount when the alligator takes damage
         }
 
         return result;
     }
+
 
     @Override
     public void stopRiding() {
