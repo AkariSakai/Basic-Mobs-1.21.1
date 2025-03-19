@@ -33,21 +33,32 @@ import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animatable.instance.SingletonAnimatableInstanceCache;
 import software.bernie.geckolib.animation.*;
 
+import java.util.Set;
+
 public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
-    // Fields
-    private AnimatableInstanceCache cache = new SingletonAnimatableInstanceCache(this);
-    public final AnimationState idleAnimationState = new AnimationState();
-    private int idleAnimationTimeout = 0;
+    // --- Constants ---
+    private static final int MAX_DAILY_HUNTS = 5;
+
+    // --- AI & Navigation ---
     private boolean activelyTraveling;
     private boolean landBound;
     private BlockPos homePos;
+
+    // --- Hunt Tracking ---
     private int dailyHuntCount = 0;
     private long lastHuntDay = -1;
-    private static final int MAX_DAILY_HUNTS = 5;
+
+    // --- Feeding System ---
     private long lastFedTime = 0;
     private int feedingDelay = 0;
     private int feedingSoundDelay = 0;
+
+    // --- Animation State & Cache ---
+    private final AnimatableInstanceCache cache = new SingletonAnimatableInstanceCache(this);
+    public final AnimationState idleAnimationState = new AnimationState();
+    private int idleAnimationTimeout = 0;
+
 
     // Constructor
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
@@ -58,16 +69,21 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     // Initialization Methods
     @Override
     protected void initGoals() {
-        this.goalSelector.add(2, new AlligatorAttackGoal(this, 2, true));
+        // --- Attack & Targeting ---
         this.goalSelector.add(1, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
-        this.goalSelector.add(3, new FollowParentGoal(this, 1.10));
-        this.goalSelector.add(4, new WanderAroundFarGoal(this, 1.00));
-        this.goalSelector.add(5, new WanderInWaterGoal(this, 1.00));
-        this.goalSelector.add(6, new WanderOnLandGoal(this, 1.00, 50));
-        this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
-        this.goalSelector.add(8, new LookAroundGoal(this));
-        this.goalSelector.add(9, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
-        this.goalSelector.add(11, new AlligatorBiteGoal(this, 2.0));
+        this.goalSelector.add(2, new AlligatorAttackGoal(this, 2, true));
+        this.goalSelector.add(3, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
+        this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
+
+        // --- Movement & Navigation ---
+        this.goalSelector.add(5, new FollowParentGoal(this, 1.10));
+        this.goalSelector.add(6, new WanderAroundFarGoal(this, 1.00));
+        this.goalSelector.add(7, new WanderInWaterGoal(this, 1.00));
+        this.goalSelector.add(8, new WanderOnLandGoal(this, 1.00, 50));
+
+        // --- Interaction & Misc ---
+        this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
+        this.goalSelector.add(10, new LookAroundGoal(this));
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
@@ -120,17 +136,16 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         return super.interactMob(player, hand);
     }
 
+    private static final Set<Class<?>> EXCLUDED_HUNT_ENTITIES = Set.of(
+            VillagerEntity.class, WanderingTraderEntity.class, SkeletonHorseEntity.class,
+            SnowGolemEntity.class, AllayEntity.class, BatEntity.class, ParrotEntity.class,
+            StriderEntity.class, PufferfishEntity.class, AlligatorEntity.class
+    );
+
     private boolean canHuntAndExclude(LivingEntity entity) {
-        // Exclude specific mobs
-        if (entity instanceof VillagerEntity || entity instanceof WanderingTraderEntity ||
-                entity instanceof SkeletonHorseEntity || entity instanceof SnowGolemEntity ||
-                entity instanceof AllayEntity || entity instanceof BatEntity || entity instanceof ParrotEntity ||
-                entity instanceof StriderEntity || entity instanceof PufferfishEntity ||
-                entity instanceof AlligatorEntity) {
-            return false;
-        }
-        return canHunt(entity);
+        return entity != null && !EXCLUDED_HUNT_ENTITIES.contains(entity.getClass()) && canHunt(entity);
     }
+
     // Movement and Navigation
     @Override
     protected EntityNavigation createNavigation(World world) {
@@ -142,6 +157,15 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
 
     // Animation Handling
+    private void setAnimationWithSpeed(AnimationController<?> controller, String transition, String loop, double speedFactor) {
+        controller.setAnimation(
+                RawAnimation.begin()
+                        .then(transition, Animation.LoopType.PLAY_ONCE)
+                        .thenLoop(loop)
+        );
+        controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() * speedFactor));
+    }
+
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, "movementController", 0, this::movementIdlePredicate));
@@ -155,61 +179,44 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     private <T extends GeoEntity> PlayState feedPredicate(software.bernie.geckolib.animation.AnimationState<T> event) {
         AnimationController<?> controller = event.getController();
-        if (controller.getCurrentAnimation() == null) {
-            controller.setAnimation(RawAnimation.begin().then("eat", Animation.LoopType.PLAY_ONCE));
+        if (feedingDelay > 0) {
+            if (controller.getCurrentAnimation() == null) {
+                controller.setAnimation(RawAnimation.begin().then("eat", Animation.LoopType.PLAY_ONCE));
+            }
+            return PlayState.CONTINUE;
         }
-        return PlayState.CONTINUE;
+
+        return PlayState.STOP;
     }
 
     private <T extends GeoEntity> PlayState bitePredicate(software.bernie.geckolib.animation.AnimationState<T> event) {
         AnimationController<?> controller = event.getController();
-        if (controller.getCurrentAnimation() == null) {
-            controller.setAnimation(RawAnimation.begin().then("bite", Animation.LoopType.PLAY_ONCE));
+        if (this.isAttacking()) {
+            if (controller.getCurrentAnimation() == null) {
+                controller.setAnimation(RawAnimation.begin().then("bite", Animation.LoopType.PLAY_ONCE));
+            }
+            return PlayState.CONTINUE;
         }
-        return PlayState.CONTINUE;
+
+        return PlayState.STOP;
     }
 
     private <T extends GeoEntity> PlayState movementIdlePredicate(software.bernie.geckolib.animation.AnimationState<T> event) {
         AnimationController<?> controller = event.getController();
+
         if (event.isMoving()) {
             if (this.isTouchingWater()) {
-                controller.setAnimation(
-                        RawAnimation.begin()
-                                .then("swim.transition", Animation.LoopType.PLAY_ONCE)
-                                .thenLoop("swim")
-                );
-                controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() * 10));
+                setAnimationWithSpeed(controller, "swim.transition", "swim", 10);
+            } else if (this.isAttacking()) {
+                setAnimationWithSpeed(controller, "walk.transition", "walk", 100);
             } else {
-                if (this.isAttacking()) {
-                    controller.setAnimation(
-                            RawAnimation.begin()
-                                    .then("walk.transition", Animation.LoopType.PLAY_ONCE)
-                                    .thenLoop("walk")
-                    );
-                    controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() * 100)); // Speed up if targeting
-                } else {
-                    controller.setAnimation(
-                            RawAnimation.begin()
-                                    .then("walk.transition", Animation.LoopType.PLAY_ONCE)
-                                    .thenLoop("walk")
-                    );
-                    controller.setAnimationSpeed(1.5 + (this.getVelocity().lengthSquared() * 10));
-                }
+                setAnimationWithSpeed(controller, "walk.transition", "walk", 10);
             }
         } else {
-            if (this.isTouchingWater()) {
-                controller.setAnimation(
-                        RawAnimation.begin()
-                                .then("swim.idle", Animation.LoopType.LOOP)
-                );
-            } else {
-                if (this.idleAnimationState.isRunning()) {
-                    controller.setAnimation(
-                            RawAnimation.begin()
-                                    .then("alligator.idle", Animation.LoopType.LOOP)
-                    );
-                }
-            }
+            controller.setAnimation(
+                    RawAnimation.begin()
+                            .then("swim.idle", Animation.LoopType.LOOP)
+            );
         }
         return PlayState.CONTINUE;
     }
@@ -246,10 +253,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
 
     public boolean canHunt(@Nullable LivingEntity target) {
-        if (target == null || this.dailyHuntCount >= MAX_DAILY_HUNTS) {
-            return false;
-        }
-        return true;
+        return target != null && this.dailyHuntCount < MAX_DAILY_HUNTS;
     }
 
     private void handleWaterMovement() {
