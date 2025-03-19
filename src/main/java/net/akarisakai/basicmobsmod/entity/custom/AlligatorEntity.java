@@ -42,6 +42,11 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     // --- Constants ---
     private static final int MAX_DAILY_HUNTS = 5;
+    private static final double MOUNT_RANGE = 2.0;
+    private static final int MAX_PASSENGERS = 3;
+    private static final int DISMOUNT_COOLDOWN = 180;
+    private static final double EJECT_VELOCITY_MULTIPLIER = 0.4;
+    private static final double EJECT_UPWARD_VELOCITY = 0.3;
 
     // --- AI & Navigation ---
     private boolean activelyTraveling;
@@ -64,6 +69,11 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public final AnimationState idleAnimationState = new AnimationState();
     private int idleAnimationTimeout = 0;
 
+    private static final double[][] BABY_OFFSETS = {
+            {0.2, 0.5},    // Baby 1 - More north, slightly right
+            {-0.2, 0.05},  // Baby 2 - More south, slightly left
+            {0.2, -0.35}   // Baby 3 - Even more south, slightly right
+    };
 
     // Constructor
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
@@ -162,24 +172,38 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
 
     private void tryMountParent() {
-        if (!this.isBaby() || this.remountCooldown > 0 || this.hasVehicle()) {
-            return; // Ensure it's a baby and not in cooldown
+        // Quick checks first
+        if (!this.isBaby() || this.remountCooldown > 0 || this.hasVehicle() ||
+                !this.isTouchingWater() || this.getTarget() != null) {
+            return;
         }
 
+        // Use a more efficient entity lookup with a smaller search radius
         List<AlligatorEntity> nearbyAdults = this.getWorld().getEntitiesByClass(
-                AlligatorEntity.class, this.getBoundingBox().expand(2.0), // Slightly increased range
-                adult -> !adult.isBaby() && adult.getPassengerList().size() < 3
+                AlligatorEntity.class,
+                this.getBoundingBox().expand(MOUNT_RANGE, 0.5, MOUNT_RANGE),
+                adult -> !adult.isBaby() &&
+                        !adult.hasVehicle() &&
+                        adult.getPassengerList().size() < MAX_PASSENGERS &&
+                        !adult.isAttacking()
         );
 
         if (!nearbyAdults.isEmpty()) {
-            AlligatorEntity closestAdult = nearbyAdults.stream()
-                    .min((a, b) -> Double.compare(this.squaredDistanceTo(a), this.squaredDistanceTo(b)))
-                    .orElse(null);
+            // Find closest adult using squared distance for better performance
+            AlligatorEntity closestAdult = nearbyAdults.get(0);
+            double closestDist = this.squaredDistanceTo(closestAdult);
 
-            if (closestAdult != null) {
-                this.startRiding(closestAdult, true);
-                this.remountCooldown = 200; // Prevent immediate remounting after dismounting
+            for (int i = 1; i < nearbyAdults.size(); i++) {
+                AlligatorEntity adult = nearbyAdults.get(i);
+                double dist = this.squaredDistanceTo(adult);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestAdult = adult;
+                }
             }
+
+            this.startRiding(closestAdult, true);
+            this.remountCooldown = 200;
         }
     }
 
@@ -342,14 +366,16 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         }
     }
 
-
     private void ejectAllPassengers() {
-        List<Entity> passengers = this.getPassengerList();
-        for (Entity passenger : passengers) {
+        if (this.getPassengerList().isEmpty()) {
+            return;
+        }
+
+        for (Entity passenger : this.getPassengerList()) {
             if (passenger instanceof AlligatorEntity baby && baby.isBaby()) {
                 baby.stopRiding();
-                baby.setVelocity(this.getVelocity().multiply(0.4).add(0, 0.3, 0));
-                baby.remountCooldown = 180; // Prevent remounting too soon
+                baby.setVelocity(this.getVelocity().multiply(EJECT_VELOCITY_MULTIPLIER).add(0, EJECT_UPWARD_VELOCITY, 0));
+                baby.remountCooldown = DISMOUNT_COOLDOWN;
             }
         }
     }
@@ -429,20 +455,23 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         boolean result = super.damage(source, amount);
 
         if (result) {
-            ejectAllPassengers(); // Babies will dismount when the alligator takes damage
+            if (this.isBaby() && this.hasVehicle()) {
+                this.stopRiding();
+                this.remountCooldown = DISMOUNT_COOLDOWN;
+            } else if (this.hasPassengers()) {
+                ejectAllPassengers();
+            }
         }
 
         return result;
     }
 
-
     @Override
     public void stopRiding() {
-        if (!this.isTouchingWater()) { // Allow dismounting only if not in water
+        if (!this.isTouchingWater()) {
             super.stopRiding();
-
             if (this instanceof AlligatorEntity babyAlligator && babyAlligator.isBaby()) {
-                babyAlligator.remountCooldown = 180; // Apply cooldown on dismount too
+                babyAlligator.remountCooldown = DISMOUNT_COOLDOWN;
             }
         }
     }
@@ -474,8 +503,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             }
         }
     }
-
-
 
     @Override
     public boolean onKilledOther(ServerWorld world, LivingEntity other) {
@@ -513,10 +540,9 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.lastHuntDay = nbt.getLong("LastHuntDay");
     }
 
-
     @Override
     public boolean isBreedingItem(ItemStack stack) {
-        return false;
+        return stack.isIn(ItemTags.MEAT);
     }
 
     @Nullable
@@ -529,7 +555,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public AnimatableInstanceCache getAnimatableInstanceCache() {
         return cache;
     }
-
 
     // Getters and Setters
     public boolean isLandBound() {
