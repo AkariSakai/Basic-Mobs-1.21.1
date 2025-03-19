@@ -74,23 +74,21 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     // Initialization Methods
     @Override
     protected void initGoals() {
-        if (this.isBaby()) {
-            this.goalSelector.add(5, new FollowParentGoal(this, 1.10));
-            this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
-            this.goalSelector.add(10, new LookAroundGoal(this)); // Random head movements
-        } else {
-            // --- Adult Alligator AI ---
-            this.goalSelector.add(3, new AlligatorAttackGoal(this, 2, true));
-            this.goalSelector.add(2, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
-            this.goalSelector.add(1, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
-            this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
-            this.goalSelector.add(5, new FollowParentGoal(this, 1.10));
-            this.goalSelector.add(6, new WanderAroundFarGoal(this, 1.00));
-            this.goalSelector.add(7, new WanderInWaterGoal(this, 1.00));
-            this.goalSelector.add(8, new WanderOnLandGoal(this, 1.00, 50));
-            this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
-            this.goalSelector.add(10, new LookAroundGoal(this));
-        }
+        // --- Attack & Targeting ---
+        this.goalSelector.add(3, new AlligatorAttackGoal(this, 2, true));
+        this.goalSelector.add(2, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
+        this.goalSelector.add(1, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
+        this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
+
+        // --- Movement & Navigation ---
+        this.goalSelector.add(5, new FollowParentGoal(this, 1.10));
+        this.goalSelector.add(6, new WanderAroundFarGoal(this, 1.00));
+        this.goalSelector.add(7, new WanderInWaterGoal(this, 1.00));
+        this.goalSelector.add(8, new WanderOnLandGoal(this, 1.00, 50));
+
+        // --- Interaction & Misc ---
+        this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
+        this.goalSelector.add(10, new LookAroundGoal(this));
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
