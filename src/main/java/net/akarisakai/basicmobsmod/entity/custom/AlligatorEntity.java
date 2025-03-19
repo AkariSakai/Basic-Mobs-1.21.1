@@ -74,21 +74,23 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     // Initialization Methods
     @Override
     protected void initGoals() {
-        // --- Attack & Targeting ---
-        this.goalSelector.add(3, new AlligatorAttackGoal(this, 2, true));
-        this.goalSelector.add(2, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
-        this.goalSelector.add(1, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
-        this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
-
-        // --- Movement & Navigation ---
-        this.goalSelector.add(5, new FollowParentGoal(this, 1.10));
-        this.goalSelector.add(6, new WanderAroundFarGoal(this, 1.00));
-        this.goalSelector.add(7, new WanderInWaterGoal(this, 1.00));
-        this.goalSelector.add(8, new WanderOnLandGoal(this, 1.00, 50));
-
-        // --- Interaction & Misc ---
-        this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
-        this.goalSelector.add(10, new LookAroundGoal(this));
+        if (this.isBaby()) {
+            this.goalSelector.add(5, new FollowParentGoal(this, 1.10));
+            this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
+            this.goalSelector.add(10, new LookAroundGoal(this)); // Random head movements
+        } else {
+            // --- Adult Alligator AI ---
+            this.goalSelector.add(3, new AlligatorAttackGoal(this, 2, true));
+            this.goalSelector.add(2, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
+            this.goalSelector.add(1, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
+            this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
+            this.goalSelector.add(5, new FollowParentGoal(this, 1.10));
+            this.goalSelector.add(6, new WanderAroundFarGoal(this, 1.00));
+            this.goalSelector.add(7, new WanderInWaterGoal(this, 1.00));
+            this.goalSelector.add(8, new WanderOnLandGoal(this, 1.00, 50));
+            this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
+            this.goalSelector.add(10, new LookAroundGoal(this));
+        }
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
@@ -321,16 +323,27 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             Entity passenger = this.getPassengerList().get(0);
 
             if (passenger instanceof AlligatorEntity babyAlligator && babyAlligator.isBaby()) {
+                BlockPos targetPos = babyAlligator.getBlockPos().down();
+
+                // Find a safe solid ground position
+                while (!this.getWorld().getBlockState(targetPos).isSolidBlock(this.getWorld(), targetPos) && targetPos.getY() > this.getBlockY() - 5) {
+                    targetPos = targetPos.down();
+                }
+
                 babyAlligator.stopRiding();
 
-                // Instead of instantly setting velocity, let it "jump" off naturally
+                // Set position on solid ground
+                babyAlligator.setPosition(targetPos.getX() + 0.5, targetPos.getY() + 1, targetPos.getZ() + 0.5);
+
+                // Natural jump-off effect
                 babyAlligator.setVelocity(this.getVelocity().multiply(0.4).add(0, 0.3, 0));
 
-                babyAlligator.remountCooldown = 180; // Prevent it from immediately remounting
-                ejectTimer = 40; // Increased timer to prevent all babies ejecting instantly
+                babyAlligator.remountCooldown = 180; // Prevent immediate remounting
+                ejectTimer = 35; // Increased timer to prevent all babies ejecting instantly
             }
         }
     }
+
 
     private void ejectAllPassengers() {
         List<Entity> passengers = this.getPassengerList();
@@ -371,6 +384,10 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
         if (remountCooldown > 0) {
             remountCooldown--;
+        }
+
+        if (ejectTimer > 0) {
+            ejectTimer--;
         }
 
         // If the alligator is in water and has a target, eject all passengers
@@ -425,6 +442,10 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public void stopRiding() {
         if (!this.isTouchingWater()) { // Allow dismounting only if not in water
             super.stopRiding();
+
+            if (this instanceof AlligatorEntity babyAlligator && babyAlligator.isBaby()) {
+                babyAlligator.remountCooldown = 180; // Apply cooldown on dismount too
+            }
         }
     }
 
