@@ -69,11 +69,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public final AnimationState idleAnimationState = new AnimationState();
     private int idleAnimationTimeout = 0;
 
-    private static final double[][] BABY_OFFSETS = {
-            {0.2, 0.5},    // Baby 1 - More north, slightly right
-            {-0.2, 0.05},  // Baby 2 - More south, slightly left
-            {0.2, -0.35}   // Baby 3 - Even more south, slightly right
-    };
 
     // Constructor
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
