@@ -9,26 +9,32 @@ public class AlligatorBiteGoal extends Goal {
     private final AlligatorEntity alligator;
     private final double range;
     private LivingEntity target;
-    private final TargetPredicate targetPredicate;
+    private static final TargetPredicate TARGET_PREDICATE = TargetPredicate.createNonAttackable();
     private int delayCounter;
     private static final int DELAY_TICKS = 8; // 0.4 seconds (20 ticks per second)
 
     public AlligatorBiteGoal(AlligatorEntity alligator, double range) {
         this.alligator = alligator;
         this.range = range;
-        this.targetPredicate = TargetPredicate.createNonAttackable().setBaseMaxDistance(range);
+        TARGET_PREDICATE.setBaseMaxDistance(range);
     }
 
     @Override
     public boolean canStart() {
-        if (this.alligator.isBaby() || this.alligator.canHunt(null) || this.alligator.hasVehicle()) {
+        if (this.alligator.isBaby() || this.alligator.hasVehicle()) {
             return false;
         }
-        this.target = this.alligator.getWorld().getClosestEntity(LivingEntity.class, targetPredicate, this.alligator, this.alligator.getX(), this.alligator.getEyeY(), this.alligator.getZ(), this.alligator.getBoundingBox().expand(this.range));
-        if (this.target instanceof AlligatorEntity) {
+
+        // Check if we can hunt first
+        if (!this.alligator.canHunt(null)) {
             return false;
         }
-        return this.target != null && this.target.canTakeDamage();
+
+        this.target = this.alligator.getWorld().getClosestEntity(LivingEntity.class, TARGET_PREDICATE,
+                this.alligator, this.alligator.getX(), this.alligator.getEyeY(), this.alligator.getZ(),
+                this.alligator.getBoundingBox().expand(this.range));
+
+        return this.target != null && !(this.target instanceof AlligatorEntity) && this.target.canTakeDamage();
     }
 
     @Override

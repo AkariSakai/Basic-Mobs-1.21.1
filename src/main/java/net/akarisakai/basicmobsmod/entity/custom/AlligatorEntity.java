@@ -67,7 +67,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     // --- Animation State & Cache ---
     private final AnimatableInstanceCache cache = new SingletonAnimatableInstanceCache(this);
-    public final AnimationState idleAnimationState = new AnimationState();
+    private final AnimationState idleAnimationState = new AnimationState();
     private int idleAnimationTimeout = 0;
 
 
@@ -83,7 +83,9 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         // --- Attack & Targeting ---
         this.goalSelector.add(3, new AlligatorAttackGoal(this, 2, true));
         this.goalSelector.add(2, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
-        this.goalSelector.add(1, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
+        if (!this.isBaby()) {
+            this.goalSelector.add(1, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
+        }
         this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
 
         // --- Movement & Navigation ---
@@ -191,7 +193,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
         if (!nearbyAdults.isEmpty()) {
             // Find closest adult using squared distance for better performance
-            AlligatorEntity closestAdult = nearbyAdults.get(0);
+            AlligatorEntity closestAdult = nearbyAdults.getFirst();
             double closestDist = this.squaredDistanceTo(closestAdult);
 
             for (int i = 1; i < nearbyAdults.size(); i++) {
@@ -328,22 +330,28 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         double deltaZ = target.getZ() - this.getZ();
         double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
 
+        // Prevent division by zero and excessive speed
+        if (distance < 0.1) {
+            return;
+        }
+
         double targetSpeed = Math.min(0.3, 0.05 + (distance * 0.02));
         double speed = MathHelper.lerp(0.1, this.getVelocity().length(), targetSpeed);
 
-        if (distance > 0.1) { // Ensure distance is significant to prevent spinning
-            this.setVelocity(
-                    MathHelper.lerp(0.2, this.getVelocity().x, (deltaX / distance) * speed),
-                    MathHelper.lerp(0.5, this.getVelocity().y, (deltaY / distance) * speed),
-                    MathHelper.lerp(0.2, this.getVelocity().z, (deltaZ / distance) * speed)
-            );
-            this.setYaw((float) (MathHelper.atan2(deltaZ, deltaX) * (180.0 / Math.PI)) - 90.0F);
-        }
+        // Normalize direction and apply speed
+        this.setVelocity(
+                MathHelper.lerp(0.2, this.getVelocity().x, (deltaX / distance) * speed),
+                MathHelper.lerp(0.5, this.getVelocity().y, (deltaY / distance) * speed),
+                MathHelper.lerp(0.2, this.getVelocity().z, (deltaZ / distance) * speed)
+        );
+
+        // Update yaw to face target
+        this.setYaw((float) (MathHelper.atan2(deltaZ, deltaX) * (180.0 / Math.PI)) - 90.0F);
     }
 
     private void ejectBabiesOneByOne() {
         if (!this.getPassengerList().isEmpty() && ejectTimer-- <= 0) {
-            Entity passenger = this.getPassengerList().get(0);
+            Entity passenger = this.getPassengerList().getFirst();
 
             if (passenger instanceof AlligatorEntity babyAlligator && babyAlligator.isBaby()) {
                 BlockPos targetPos = babyAlligator.getBlockPos().down();
@@ -543,7 +551,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     @Override
     public boolean isBreedingItem(ItemStack stack) {
-        return stack.isOf(Items.CHICKEN) || stack.isOf(Items.COOKED_CHICKEN);
+        return stack.isOf(Items.IRON_INGOT) || stack.isOf(Items.IRON_ORE);
     }
 
     @Nullable

@@ -33,15 +33,16 @@ public class AlligatorModel extends GeoModel {
     public void setCustomAnimations(GeoAnimatable animatable, long instanceId, AnimationState animationState) {
         GeoBone head = getAnimationProcessor().getBone("head");
 
-        if (head != null) {
+        if (head != null && animatable instanceof AlligatorEntity alligator) {
             EntityModelData entityData = (EntityModelData) animationState.getData(DataTickets.ENTITY_MODEL_DATA);
 
-            if (animatable instanceof AlligatorEntity alligator) {
+            if (entityData != null) {
                 boolean isInWater = alligator.isTouchingWater();
 
                 float targetRotX = entityData.headPitch() * MathHelper.RADIANS_PER_DEGREE;
                 float targetRotY = entityData.netHeadYaw() * MathHelper.RADIANS_PER_DEGREE;
 
+                // Apply water-based head movement
                 if (isInWater) {
                     head.setRotX(MathHelper.lerp(0.1F, head.getRotX(), targetRotX * 0.25F));
                     head.setRotY(MathHelper.lerp(0.1F, head.getRotY(), targetRotY * 0.25F));
@@ -50,7 +51,7 @@ public class AlligatorModel extends GeoModel {
                     head.setRotY(MathHelper.lerp(0.3F, head.getRotY(), targetRotY));
                 }
 
-                // Blend custom animations with target tracking
+                // Target tracking
                 LivingEntity target = alligator.getTarget();
                 if (target != null && target.isAlive()) {
                     double deltaX = target.getX() - alligator.getX();
@@ -58,23 +59,20 @@ public class AlligatorModel extends GeoModel {
                     double deltaZ = target.getZ() - alligator.getZ();
                     double distance = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
 
-                    float lookYaw = (float) (MathHelper.atan2(deltaZ, deltaX) * (180F / Math.PI)) - 90F;
-                    float lookPitch = (float) -(MathHelper.atan2(deltaY, distance) * (180F / Math.PI));
+                    if (distance > 0.1) { // Prevent division by zero
+                        float lookYaw = (float) (MathHelper.atan2(deltaZ, deltaX) * (180F / Math.PI)) - 90F;
+                        float lookPitch = (float) -(MathHelper.atan2(deltaY, distance) * (180F / Math.PI));
 
-                    head.setRotY(MathHelper.lerp(0.3F, head.getRotY(), lookYaw * MathHelper.RADIANS_PER_DEGREE));
-                    head.setRotX(MathHelper.lerp(0.3F, head.getRotX(), lookPitch * MathHelper.RADIANS_PER_DEGREE));
+                        head.setRotY(MathHelper.lerp(0.3F, head.getRotY(), lookYaw * MathHelper.RADIANS_PER_DEGREE));
+                        head.setRotX(MathHelper.lerp(0.3F, head.getRotX(), lookPitch * MathHelper.RADIANS_PER_DEGREE));
+                    }
                 }
 
-                // Scale the head if the alligator is a child
-                if (alligator.isBaby()) {
-                    head.setScaleX(1.5F);
-                    head.setScaleY(1.5F);
-                    head.setScaleZ(1.5F); // Increase the size of the head by 50%
-                } else {
-                    head.setScaleX(1.0F);
-                    head.setScaleY(1.0F);
-                    head.setScaleZ(1.0F); // Reset to normal size if not a child
-                }
+                // Scale head for baby alligators
+                float headScale = alligator.isBaby() ? 1.5F : 1.0F;
+                head.setScaleX(headScale);
+                head.setScaleY(headScale);
+                head.setScaleZ(headScale);
             }
         }
     }
