@@ -130,8 +130,8 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
             if (!this.getWorld().isClient) {
                 this.eat(player, hand, itemStack);
-                this.heal(5.0F); // Heal the alligator by 5 HP
-                this.triggerAnim("feedController", "eat"); // Trigger feed animation
+                this.heal(5.0F);
+                this.triggerAnim("feedController", "eat");
 
                 // Set cooldown
                 lastFedTime = currentTime;
@@ -366,7 +366,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 // Set position on solid ground
                 babyAlligator.setPosition(targetPos.getX() + 0.5, targetPos.getY() + 1, targetPos.getZ() + 0.5);
 
-                // Natural jump-off effect
                 babyAlligator.setVelocity(this.getVelocity().multiply(0.4).add(0, 0.3, 0));
 
                 babyAlligator.remountCooldown = 180; // Prevent immediate remounting
@@ -423,7 +422,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             ejectTimer--;
         }
 
-        // If the alligator is in water and has a target, eject all passengers
         if (this.hasPassengers() && this.getTarget() != null) {
             ejectAllPassengers();
         }
@@ -438,7 +436,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             ejectBabiesOneByOne();
         }
 
-        // Handle feeding sound delay (16 ticks)
         if (feedingSoundDelay > 0) {
             feedingSoundDelay--;
             if (feedingSoundDelay == 0) {
@@ -447,7 +444,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             }
         }
 
-        // Handle heart particles delay (20 ticks), but only if it can't hunt anymore
         if (feedingDelay > 0) {
             feedingDelay--;
             if (feedingDelay == 0 && !this.getWorld().isClient) {
@@ -488,16 +484,16 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     public void updatePassengerPosition(Entity passenger, PositionUpdater positionUpdater) {
         if (this.hasPassenger(passenger)) {
-            double offsetY = 0.915; // Raise babies higher
+            double offsetY = 0.915;
             double offsetX = 0.0;
             double offsetZ = 0.0;
 
             int passengerIndex = this.getPassengerList().indexOf(passenger);
             if (passenger instanceof AlligatorEntity babyAlligator && babyAlligator.isBaby()) {
                 switch (passengerIndex) {
-                    case 0 -> { offsetX = 0.2; offsetZ = 0.5; }  // Baby 1 - More north, slightly right
-                    case 1 -> { offsetX = -0.2; offsetZ = 0.05; } // Baby 2 - More south, slightly left
-                    case 2 -> { offsetX = 0.2; offsetZ = -0.35; }  // Baby 3 - Even more south, slightly right
+                    case 0 -> { offsetX = 0.2; offsetZ = 0.5; }  // Baby 1
+                    case 1 -> { offsetX = -0.2; offsetZ = 0.05; } // Baby 2
+                    case 2 -> { offsetX = 0.2; offsetZ = -0.35; }  // Baby 3
                 }
 
                 // Rotate offsets based on parent yaw
@@ -515,9 +511,9 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     @Override
     public boolean onKilledOther(ServerWorld world, LivingEntity other) {
-        boolean result = super.onKilledOther(world, other); // Call parent method
+        boolean result = super.onKilledOther(world, other);
 
-        if (result) { // If the kill is valid
+        if (result) {
             // Set the daily hunt count to the maximum if the alligator is a baby
             if (this.isBaby()) {
                 this.dailyHuntCount = MAX_DAILY_HUNTS;
