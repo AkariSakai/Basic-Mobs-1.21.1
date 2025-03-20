@@ -26,7 +26,7 @@ public class WanderInWaterGoal extends MoveToTargetPosGoal {
         if (this.alligator.isBaby() && !this.alligator.isTouchingWater()) {
             return super.canStart();
         } else {
-            return !this.alligator.isLandBound() && !this.alligator.isTouchingWater() ? super.canStart() : false;
+            return !this.alligator.isLandBound() && !this.alligator.isTouchingWater() && super.canStart();
         }
     }
 

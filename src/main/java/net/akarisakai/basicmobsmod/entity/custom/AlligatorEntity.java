@@ -17,6 +17,7 @@ import net.minecraft.entity.mob.SkeletonHorseEntity;
 import net.minecraft.entity.passive.*;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.recipe.Ingredient;
@@ -94,6 +95,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         // --- Interaction & Misc ---
         this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
         this.goalSelector.add(10, new LookAroundGoal(this));
+        this.goalSelector.add(0, new AnimalMateGoal(this, 1.0));
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
@@ -112,6 +114,10 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     public ActionResult interactMob(PlayerEntity player, Hand hand) {
         ItemStack itemStack = player.getStackInHand(hand);
+
+        if(this.isBreedingItem(itemStack)) {
+            return super.interactMob(player, hand);
+        }
 
         if (itemStack.isIn(ItemTags.MEAT)) {
             long currentTime = this.getWorld().getTime(); // Get current world time (in ticks)
@@ -537,7 +543,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     @Override
     public boolean isBreedingItem(ItemStack stack) {
-        return stack.isIn(ItemTags.MEAT);
+        return stack.isOf(Items.CHICKEN) || stack.isOf(Items.COOKED_CHICKEN);
     }
 
     @Nullable
