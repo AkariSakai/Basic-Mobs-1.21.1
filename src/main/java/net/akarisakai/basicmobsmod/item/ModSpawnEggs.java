@@ -17,7 +17,7 @@ public class ModSpawnEggs {
     }
 
     public static void registerModItems() {
-        BasicMobsMod.LOGGER.info("[BasicMobsMod] Registering Mod Items.");
+        BasicMobsMod.LOGGER.info("[BasicMobsMod] Registering Mod Spawn Eggs.");
 
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.SPAWN_EGGS).register(entries -> {
             entries.add(ModSpawnEggs.ALLIGATOR_SPAWN_EGG);

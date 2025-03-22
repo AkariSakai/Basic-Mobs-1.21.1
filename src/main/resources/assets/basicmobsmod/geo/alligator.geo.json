@@ -129,8 +129,13 @@
 					"pivot": [0, 10.25, -13.6]
 				},
 				{
-					"name": "rotfix",
+					"name": "alt_head",
 					"parent": "head",
+					"pivot": [0, 10.25, -13.6]
+				},
+				{
+					"name": "rotfix",
+					"parent": "alt_head",
 					"pivot": [-0.05, 11.85, -16.6],
 					"rotation": [0, -90, 0]
 				},

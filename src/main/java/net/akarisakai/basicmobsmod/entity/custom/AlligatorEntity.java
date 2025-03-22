@@ -10,8 +10,13 @@ import net.minecraft.entity.ai.control.MoveControl;
 import net.minecraft.entity.ai.goal.*;
 import net.minecraft.entity.ai.pathing.EntityNavigation;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
+import net.minecraft.entity.attribute.EntityAttributeModifier;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.data.DataTracker;
+import net.minecraft.entity.data.TrackedData;
+import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.mob.SkeletonHorseEntity;
 import net.minecraft.entity.passive.*;
@@ -27,6 +32,7 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
@@ -48,6 +54,13 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private static final int DISMOUNT_COOLDOWN = 180;
     private static final double EJECT_VELOCITY_MULTIPLIER = 0.4;
     private static final double EJECT_UPWARD_VELOCITY = 0.3;
+    private static final TrackedData<Boolean> BABY = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+    private static final Identifier BABY_HEALTH_MODIFIER_ID = Identifier.of("basicmobsmod:baby_health");
+    private static final Identifier BABY_DAMAGE_MODIFIER_ID = Identifier.of("basicmobsmod:baby_damage");
+    private static final EntityAttributeModifier BABY_HEALTH_MODIFIER =
+            new EntityAttributeModifier(BABY_HEALTH_MODIFIER_ID, -0.7, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+    private static final EntityAttributeModifier BABY_DAMAGE_MODIFIER =
+            new EntityAttributeModifier(BABY_DAMAGE_MODIFIER_ID, -0.7, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 
     // --- AI & Navigation ---
     private boolean activelyTraveling;
@@ -66,7 +79,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private int feedingSoundDelay = 0;
 
     // --- Animation State & Cache ---
-    private final AnimatableInstanceCache cache = new SingletonAnimatableInstanceCache(this);
+    private AnimatableInstanceCache cache = new SingletonAnimatableInstanceCache(this);
     private final AnimationState idleAnimationState = new AnimationState();
     private int idleAnimationTimeout = 0;
 
@@ -81,15 +94,14 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     protected void initGoals() {
         // --- Attack & Targeting ---
-        this.goalSelector.add(3, new AlligatorAttackGoal(this, 2, true));
+        this.goalSelector.add(4, new AlligatorAttackGoal(this, 2, true));
         this.goalSelector.add(2, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
-        if (!this.isBaby()) {
-            this.goalSelector.add(1, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
-        }
+        this.goalSelector.add(2, new ActiveTargetGoal<>(this, FishEntity.class, true, this::canHuntAndExclude));
+        this.goalSelector.add(3, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
         this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
 
         // --- Movement & Navigation ---
-        this.goalSelector.add(5, new FollowParentGoal(this, 1.10));
+        this.goalSelector.add(1, new FollowParentGoal(this, 1.10));
         this.goalSelector.add(6, new WanderAroundFarGoal(this, 1.00));
         this.goalSelector.add(7, new WanderInWaterGoal(this, 1.00));
         this.goalSelector.add(8, new WanderOnLandGoal(this, 1.00, 50));
@@ -97,12 +109,14 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         // --- Interaction & Misc ---
         this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
         this.goalSelector.add(10, new LookAroundGoal(this));
-        this.goalSelector.add(0, new AnimalMateGoal(this, 1.0));
+        if (!this.isBaby()) {
+            this.goalSelector.add(0, new AnimalMateGoal(this, 1.0));
+        }
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
         return MobEntity.createMobAttributes()
-                .add(EntityAttributes.GENERIC_MAX_HEALTH, 35)
+                .add(EntityAttributes.GENERIC_MAX_HEALTH, 28)
                 .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.17)
                 .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 6)
                 .add(EntityAttributes.GENERIC_ATTACK_SPEED, 0.8)
@@ -177,7 +191,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private void tryMountParent() {
         // Quick checks first
         if (!this.isBaby() || this.remountCooldown > 0 || this.hasVehicle() ||
-                !this.isTouchingWater() || this.getTarget() != null) {
+                !this.isTouchingWater() || this.isSubmergedInWater() || this.getTarget() != null) {
             return;
         }
 
@@ -219,6 +233,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         );
         controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() * speedFactor));
     }
+
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
@@ -304,7 +319,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
 
     private void resetDailyHuntCount() {
-        long currentDay = this.getWorld().getTimeOfDay() / 24000L;
+        long currentDay = this.getWorld().getTimeOfDay() / 48000L;
         if (currentDay != this.lastHuntDay) {
             this.dailyHuntCount = 0;
             this.lastHuntDay = currentDay;
@@ -325,12 +340,15 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
 
     private void swimTowardsTarget(LivingEntity target) {
+        if (this.hasVehicle()) {
+            return; // Don't update yaw if riding something
+        }
+
         double deltaX = target.getX() - this.getX();
         double deltaY = target.getY() - this.getY();
         double deltaZ = target.getZ() - this.getZ();
         double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
 
-        // Prevent division by zero and excessive speed
         if (distance < 0.1) {
             return;
         }
@@ -338,16 +356,18 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         double targetSpeed = Math.min(0.3, 0.05 + (distance * 0.02));
         double speed = MathHelper.lerp(0.1, this.getVelocity().length(), targetSpeed);
 
-        // Normalize direction and apply speed
         this.setVelocity(
                 MathHelper.lerp(0.2, this.getVelocity().x, (deltaX / distance) * speed),
                 MathHelper.lerp(0.5, this.getVelocity().y, (deltaY / distance) * speed),
                 MathHelper.lerp(0.2, this.getVelocity().z, (deltaZ / distance) * speed)
         );
 
-        // Update yaw to face target
-        this.setYaw((float) (MathHelper.atan2(deltaZ, deltaX) * (180.0 / Math.PI)) - 90.0F);
+        // Update yaw to face target, but only if not riding something
+        if (!this.hasVehicle()) {
+            this.setYaw((float) (MathHelper.atan2(deltaZ, deltaX) * (180.0 / Math.PI)) - 90.0F);
+        }
     }
+
 
     private void ejectBabiesOneByOne() {
         if (!this.getPassengerList().isEmpty() && ejectTimer-- <= 0) {
@@ -384,6 +404,39 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 baby.stopRiding();
                 baby.setVelocity(this.getVelocity().multiply(EJECT_VELOCITY_MULTIPLIER).add(0, EJECT_UPWARD_VELOCITY, 0));
                 baby.remountCooldown = DISMOUNT_COOLDOWN;
+            }
+        }
+    }
+
+    @Override
+    protected void initDataTracker(DataTracker.Builder builder) {
+        super.initDataTracker(builder);
+        builder.add(BABY, false);
+    }
+
+    public boolean isBaby() {
+        return this.dataTracker.get(BABY);
+    }
+
+    public void setBaby(boolean baby) {
+        this.dataTracker.set(BABY, baby);
+        this.calculateDimensions();
+        EntityAttributeInstance health = this.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
+        EntityAttributeInstance damage = this.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
+
+        if (health != null) {
+            health.removeModifier(BABY_HEALTH_MODIFIER_ID);
+        }
+        if (damage != null) {
+            damage.removeModifier(BABY_DAMAGE_MODIFIER_ID);
+        }
+        if (baby) {
+            if (health != null) {
+                health.addPersistentModifier(BABY_HEALTH_MODIFIER);
+                this.setHealth(this.getMaxHealth()); // Update current health
+            }
+            if (damage != null) {
+                damage.addPersistentModifier(BABY_DAMAGE_MODIFIER);
             }
         }
     }
@@ -484,16 +537,35 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     public void updatePassengerPosition(Entity passenger, PositionUpdater positionUpdater) {
         if (this.hasPassenger(passenger)) {
-            double offsetY = 0.915;
+            double offsetY = 0.905;
             double offsetX = 0.0;
             double offsetZ = 0.0;
 
             int passengerIndex = this.getPassengerList().indexOf(passenger);
+
             if (passenger instanceof AlligatorEntity babyAlligator && babyAlligator.isBaby()) {
                 switch (passengerIndex) {
-                    case 0 -> { offsetX = 0.2; offsetZ = 0.5; }  // Baby 1
-                    case 1 -> { offsetX = -0.2; offsetZ = 0.05; } // Baby 2
-                    case 2 -> { offsetX = 0.2; offsetZ = -0.35; }  // Baby 3
+                    case 0 -> {
+                        offsetX = 0.2;  // Start closer to center for Baby 1
+                        offsetZ = 0.2;
+                    }
+                    case 1 -> {
+                        offsetX = -0.2; // Start closer to center for Baby 2
+                        offsetZ = -0.2;
+                    }
+
+                }
+
+                // Transition to the final positions once all babies are present
+                if (this.getPassengerList().size() == 3) {
+                    switch (passengerIndex) {
+                        case 0 -> offsetZ = 0.5;  // Final position for Baby 1
+                        case 1 -> offsetZ = 0.05;  // Final position for Baby 2
+                        case 2 -> {
+                            offsetX = 0.2;
+                            offsetZ = -0.35;
+                        }  // Final position for Baby 3
+                    }
                 }
 
                 // Rotate offsets based on parent yaw
@@ -504,10 +576,12 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 // Set the passenger's position
                 positionUpdater.accept(passenger, this.getX() + rotatedX, this.getY() + offsetY, this.getZ() + rotatedZ);
             } else {
+                // For non-baby passengers, use the default method
                 super.updatePassengerPosition(passenger, positionUpdater);
             }
         }
     }
+
 
     @Override
     public boolean onKilledOther(ServerWorld world, LivingEntity other) {
@@ -536,6 +610,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         super.writeCustomDataToNbt(nbt);
         nbt.putInt("DailyHuntCount", this.dailyHuntCount);
         nbt.putLong("LastHuntDay", this.lastHuntDay);
+        nbt.putBoolean("IsBaby", this.isBaby());
     }
 
     @Override
@@ -543,6 +618,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         super.readCustomDataFromNbt(nbt);
         this.dailyHuntCount = nbt.getInt("DailyHuntCount");
         this.lastHuntDay = nbt.getLong("LastHuntDay");
+        this.setBaby(nbt.getBoolean("IsBaby"));
     }
 
     @Override
@@ -553,8 +629,14 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Nullable
     @Override
     public PassiveEntity createChild(ServerWorld world, PassiveEntity entity) {
-        return ModEntities.ALLIGATOR.create(world);
+        AlligatorEntity babyAlligator = ModEntities.ALLIGATOR.create(world);
+        if (babyAlligator != null) {
+            babyAlligator.setBaby(true);  // Keep this if it's relevant
+            babyAlligator.setBreedingAge(-24000); // Explicitly set it as a baby
+        }
+        return babyAlligator;
     }
+
 
     @Override
     public AnimatableInstanceCache getAnimatableInstanceCache() {
@@ -585,4 +667,5 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public void setActivelyTraveling(boolean activelyTraveling) {
         this.activelyTraveling = activelyTraveling;
     }
+
 }
