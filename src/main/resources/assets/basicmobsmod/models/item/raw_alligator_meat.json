@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "basicmobsmod:item/alligator_meat"
+    "layer0": "basicmobsmod:item/raw_alligator_meat"
   }
 }

@@ -99,6 +99,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.goalSelector.add(2, new ActiveTargetGoal<>(this, FishEntity.class, true, this::canHuntAndExclude));
         this.goalSelector.add(3, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
         this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
+        this.goalSelector.add(4, new RevengeGoal(this));
 
         // --- Movement & Navigation ---
         this.goalSelector.add(1, new FollowParentGoal(this, 1.10));
@@ -109,9 +110,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         // --- Interaction & Misc ---
         this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
         this.goalSelector.add(10, new LookAroundGoal(this));
-        if (!this.isBaby()) {
-            this.goalSelector.add(0, new AnimalMateGoal(this, 1.0));
-        }
+        this.goalSelector.add(0, new AnimalMateGoal(this, 1.0));
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
@@ -206,7 +205,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         );
 
         if (!nearbyAdults.isEmpty()) {
-            // Find closest adult using squared distance for better performance
             AlligatorEntity closestAdult = nearbyAdults.getFirst();
             double closestDist = this.squaredDistanceTo(closestAdult);
 
@@ -631,8 +629,8 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public PassiveEntity createChild(ServerWorld world, PassiveEntity entity) {
         AlligatorEntity babyAlligator = ModEntities.ALLIGATOR.create(world);
         if (babyAlligator != null) {
-            babyAlligator.setBaby(true);  // Keep this if it's relevant
-            babyAlligator.setBreedingAge(-24000); // Explicitly set it as a baby
+            babyAlligator.setBaby(true);
+            babyAlligator.setBreedingAge(-24000);
         }
         return babyAlligator;
     }

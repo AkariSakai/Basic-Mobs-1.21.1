@@ -10,7 +10,7 @@ import net.minecraft.util.Identifier;
 
 public class ModItems {
 
-    public static final Item ALLIGATOR_MEAT = registerItem("alligator_meat", new Item(new Item.Settings().food(ModFoodComponents.ALLIGATOR_MEAT)));
+    public static final Item RAW_ALLIGATOR_MEAT = registerItem("raw_alligator_meat", new Item(new Item.Settings().food(ModFoodComponents.RAW_ALLIGATOR_MEAT)));
     public static final Item COOKED_ALLIGATOR_MEAT = registerItem("cooked_alligator_meat", new Item(new Item.Settings().food(ModFoodComponents.COOKED_ALLIGATOR_MEAT)));
     public static final Item ALLIGATOR_SCUTE = registerItem("alligator_scute", new Item(new Item.Settings()));
     private static Item registerItem(String name, Item item) {
@@ -24,7 +24,7 @@ public class ModItems {
             entries.add(ModItems.ALLIGATOR_SCUTE);
         });
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FOOD_AND_DRINK).register(entries -> {
-            entries.add(ModItems.ALLIGATOR_MEAT);
+            entries.add(ModItems.RAW_ALLIGATOR_MEAT);
         });
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FOOD_AND_DRINK).register(entries -> {
             entries.add(ModItems.COOKED_ALLIGATOR_MEAT);
