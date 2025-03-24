@@ -12,6 +12,7 @@ public class AlligatorRenderer extends GeoEntityRenderer<AlligatorEntity> {
     public AlligatorRenderer(EntityRendererFactory.Context renderManager) {
         super(renderManager, new AlligatorModel());
         this.shadowRadius = 0.7F;
+        this.addRenderLayer(new AlligatorHeldItemLayer(this));
     }
 
     @Override

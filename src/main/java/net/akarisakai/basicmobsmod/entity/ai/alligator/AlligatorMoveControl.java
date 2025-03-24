@@ -26,7 +26,6 @@ public class AlligatorMoveControl extends MoveControl {
             this.alligator.setMovementSpeed(Math.max(this.alligator.getMovementSpeed() / 2.0F, 0.06F));
         }
 
-        // Reduce movement speed when mounted
         if (this.alligator.hasVehicle()) {
             this.alligator.setMovementSpeed(this.alligator.getMovementSpeed() * 0.5F);
         }

@@ -150,6 +150,11 @@
 					]
 				},
 				{
+					"name": "item",
+					"parent": "lowerjaw",
+					"pivot": [-8, 12.75, -16.6]
+				},
+				{
 					"name": "cheek",
 					"parent": "rotfix",
 					"pivot": [-0.05, 11.85, -16.6],

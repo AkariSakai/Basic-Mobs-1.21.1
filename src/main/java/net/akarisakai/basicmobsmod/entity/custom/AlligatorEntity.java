@@ -62,6 +62,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             new EntityAttributeModifier(BABY_DAMAGE_MODIFIER_ID, -0.7, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 
     private boolean hasBredThisCycle = false;
+    private static final TrackedData<ItemStack> HELD_ITEM = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.ITEM_STACK);
 
 
     // --- AI & Navigation ---
@@ -142,11 +143,12 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             if (!this.getWorld().isClient) {
                 this.eat(player, hand, itemStack);
                 this.heal(5.0F);
+                this.setHeldItem(itemStack.split(1)); // Hold the item
                 this.triggerAnim("feedController", "eat");
 
                 // Set cooldown
                 lastFedTime = currentTime;
-                feedingSoundDelay = 16; // Sound plays at * ticks
+                feedingSoundDelay = 17; // Sound plays at * ticks
                 feedingDelay = 25; // Hearts spawn at * ticks
 
                 // Update hunt count
@@ -415,6 +417,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     protected void initDataTracker(DataTracker.Builder builder) {
         super.initDataTracker(builder);
         builder.add(BABY, false);
+        builder.add(HELD_ITEM, ItemStack.EMPTY);
     }
 
     public boolean isBaby() {
@@ -505,6 +508,9 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
                     ((ServerWorld) this.getWorld()).spawnParticles(ParticleTypes.HEART,
                             this.getX(), this.getY() + 1.0, this.getZ(), 3, 0.3, 0.3, 0.3, 0.1);
+                }
+                if (this.feedingDelay == 0 && !this.getHeldItem().isEmpty()) {
+                    this.setHeldItem(ItemStack.EMPTY);
                 }
             }
         }
@@ -677,6 +683,16 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
 
     // Getters and Setters
+    public ItemStack getHeldItem() {
+        return this.dataTracker.get(HELD_ITEM);
+    }
+
+    public void setHeldItem(ItemStack stack) {
+        this.dataTracker.set(HELD_ITEM, stack.copy());
+        if (!this.getWorld().isClient) {
+            this.getWorld().sendEntityStatus(this, (byte) 10); // Sync to clients
+        }
+    }
     public boolean isLandBound() {
         return !landBound;
     }
