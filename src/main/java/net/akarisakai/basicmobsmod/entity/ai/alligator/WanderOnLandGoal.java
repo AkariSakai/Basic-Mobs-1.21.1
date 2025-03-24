@@ -13,6 +13,6 @@ public class WanderOnLandGoal extends WanderAroundGoal {
 
     @Override
     public boolean canStart() {
-        return !this.mob.isTouchingWater() && !this.alligator.isLandBound() ? super.canStart() : false;
+        return !this.mob.isTouchingWater() && this.alligator.isLandBound() ? super.canStart() : false;
     }
 }

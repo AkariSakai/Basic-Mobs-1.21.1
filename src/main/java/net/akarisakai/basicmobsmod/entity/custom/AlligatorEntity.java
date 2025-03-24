@@ -22,7 +22,6 @@ import net.minecraft.entity.mob.SkeletonHorseEntity;
 import net.minecraft.entity.passive.*;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.recipe.Ingredient;
@@ -61,6 +60,9 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             new EntityAttributeModifier(BABY_HEALTH_MODIFIER_ID, -0.7, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
     private static final EntityAttributeModifier BABY_DAMAGE_MODIFIER =
             new EntityAttributeModifier(BABY_DAMAGE_MODIFIER_ID, -0.7, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+
+    private boolean hasBredThisCycle = false;
+
 
     // --- AI & Navigation ---
     private boolean activelyTraveling;
@@ -130,11 +132,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public ActionResult interactMob(PlayerEntity player, Hand hand) {
         ItemStack itemStack = player.getStackInHand(hand);
 
-        if(this.isBreedingItem(itemStack)) {
-            return super.interactMob(player, hand);
-        }
-
-        if (itemStack.isIn(ItemTags.MEAT)) {
+        if (itemStack.isIn(ItemTags.MEAT) || this.isBreedingItem(itemStack)) {
             long currentTime = this.getWorld().getTime(); // Get current world time (in ticks)
 
             if (currentTime - lastFedTime < 30) {
@@ -158,6 +156,10 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                     this.dailyHuntCount++;
                 }
 
+                if (this.dailyHuntCount >= MAX_DAILY_HUNTS && !this.hasBredThisCycle) {
+                    this.setLoveTicks(600);
+                }
+
                 return ActionResult.SUCCESS;
             } else {
                 return ActionResult.CONSUME;
@@ -170,7 +172,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private static final Set<Class<?>> EXCLUDED_HUNT_ENTITIES = Set.of(
             VillagerEntity.class, WanderingTraderEntity.class, SkeletonHorseEntity.class,
             SnowGolemEntity.class, AllayEntity.class, BatEntity.class, ParrotEntity.class,
-            StriderEntity.class, PufferfishEntity.class, AlligatorEntity.class
+            StriderEntity.class, PufferfishEntity.class, AlligatorEntity.class, BeeEntity.class
     );
 
     private boolean canHuntAndExclude(LivingEntity entity) {
@@ -194,7 +196,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             return;
         }
 
-        // Use a more efficient entity lookup with a smaller search radius
         List<AlligatorEntity> nearbyAdults = this.getWorld().getEntitiesByClass(
                 AlligatorEntity.class,
                 this.getBoundingBox().expand(MOUNT_RANGE, 0.5, MOUNT_RANGE),
@@ -222,7 +223,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         }
     }
 
-    // Animation Handling
     private void setAnimationWithSpeed(AnimationController<?> controller, String transition, String loop, double speedFactor) {
         controller.setAnimation(
                 RawAnimation.begin()
@@ -280,10 +280,17 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 setAnimationWithSpeed(controller, "walk.transition", "walk", 10);
             }
         } else {
-            controller.setAnimation(
-                    RawAnimation.begin()
-                            .then("swim.idle", Animation.LoopType.LOOP)
-            );
+            if(this.isTouchingWater()) {
+                controller.setAnimation(
+                        RawAnimation.begin()
+                                .then("swim.idle", Animation.LoopType.LOOP)
+                );
+            } else {
+                controller.setAnimation(
+                        RawAnimation.begin()
+                                .then("alligator.idle", Animation.LoopType.LOOP)
+                );
+            }
         }
         return PlayState.CONTINUE;
     }
@@ -321,8 +328,10 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         if (currentDay != this.lastHuntDay) {
             this.dailyHuntCount = 0;
             this.lastHuntDay = currentDay;
+            this.hasBredThisCycle = false;
         }
     }
+
 
     public boolean canHunt(@Nullable LivingEntity target) {
         return target != null && this.dailyHuntCount < MAX_DAILY_HUNTS;
@@ -339,7 +348,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     private void swimTowardsTarget(LivingEntity target) {
         if (this.hasVehicle()) {
-            return; // Don't update yaw if riding something
+            return;
         }
 
         double deltaX = target.getX() - this.getX();
@@ -359,8 +368,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 MathHelper.lerp(0.5, this.getVelocity().y, (deltaY / distance) * speed),
                 MathHelper.lerp(0.2, this.getVelocity().z, (deltaZ / distance) * speed)
         );
-
-        // Update yaw to face target, but only if not riding something
         if (!this.hasVehicle()) {
             this.setYaw((float) (MathHelper.atan2(deltaZ, deltaX) * (180.0 / Math.PI)) - 90.0F);
         }
@@ -374,14 +381,12 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             if (passenger instanceof AlligatorEntity babyAlligator && babyAlligator.isBaby()) {
                 BlockPos targetPos = babyAlligator.getBlockPos().down();
 
-                // Find a safe solid ground position
                 while (!this.getWorld().getBlockState(targetPos).isSolidBlock(this.getWorld(), targetPos) && targetPos.getY() > this.getBlockY() - 5) {
                     targetPos = targetPos.down();
                 }
 
                 babyAlligator.stopRiding();
 
-                // Set position on solid ground
                 babyAlligator.setPosition(targetPos.getX() + 0.5, targetPos.getY() + 1, targetPos.getZ() + 0.5);
 
                 babyAlligator.setVelocity(this.getVelocity().multiply(0.4).add(0, 0.3, 0));
@@ -459,20 +464,19 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public void tick() {
         super.tick();
 
-        resetDailyHuntCount();
+        if (this.age % 20 == 0) {
+            resetDailyHuntCount();
+        }
 
+        // Client-side animation updates
         if (this.getWorld().isClient()) {
             this.setupAnimationStates();
         }
 
-        if (remountCooldown > 0) {
-            remountCooldown--;
-        }
+        if (remountCooldown > 0) remountCooldown--;
+        if (ejectTimer > 0) ejectTimer--;
 
-        if (ejectTimer > 0) {
-            ejectTimer--;
-        }
-
+        // Handle passengers and attacks
         if (this.hasPassengers() && this.getTarget() != null) {
             ejectAllPassengers();
         }
@@ -508,18 +512,14 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     @Override
     public boolean damage(DamageSource source, float amount) {
-        boolean result = super.damage(source, amount);
-
-        if (result) {
-            if (this.isBaby() && this.hasVehicle()) {
-                this.stopRiding();
-                this.remountCooldown = DISMOUNT_COOLDOWN;
-            } else if (this.hasPassengers()) {
-                ejectAllPassengers();
-            }
+        if (this.isBaby() && this.hasVehicle()) {
+            this.stopRiding();
+            this.remountCooldown = DISMOUNT_COOLDOWN;
+        } else if (this.hasPassengers()) {
+            ejectAllPassengers();
         }
 
-        return result;
+        return super.damage(source, amount);
     }
 
     @Override
@@ -586,14 +586,11 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         boolean result = super.onKilledOther(world, other);
 
         if (result) {
-            // Set the daily hunt count to the maximum if the alligator is a baby
             if (this.isBaby()) {
                 this.dailyHuntCount = MAX_DAILY_HUNTS;
             } else {
                 this.dailyHuntCount++;
             }
-
-            // Show particles when the hunt limit is reached
             if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
                 world.spawnParticles(ParticleTypes.HEART, this.getX(), this.getY() + 1.0, this.getZ(),
                         5, 0.5, 0.5, 0.5, 0.0);
@@ -609,6 +606,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         nbt.putInt("DailyHuntCount", this.dailyHuntCount);
         nbt.putLong("LastHuntDay", this.lastHuntDay);
         nbt.putBoolean("IsBaby", this.isBaby());
+        nbt.putBoolean("HasBredThisCycle", this.hasBredThisCycle); // Add this line
     }
 
     @Override
@@ -617,12 +615,49 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.dailyHuntCount = nbt.getInt("DailyHuntCount");
         this.lastHuntDay = nbt.getLong("LastHuntDay");
         this.setBaby(nbt.getBoolean("IsBaby"));
+        this.hasBredThisCycle = nbt.getBoolean("HasBredThisCycle"); // Add this line
     }
 
     @Override
     public boolean isBreedingItem(ItemStack stack) {
-        return stack.isOf(Items.IRON_INGOT) || stack.isOf(Items.IRON_ORE);
+        return  stack.isIn(ItemTags.MEAT);
     }
+
+    @Override
+    public boolean canBreedWith(AnimalEntity other) {
+        if (other == this || !(other instanceof AlligatorEntity alligator)) {
+            return false;
+        }
+        return this.isInLove() &&
+                alligator.isInLove() &&
+                this.dailyHuntCount >= MAX_DAILY_HUNTS &&
+                alligator.dailyHuntCount >= MAX_DAILY_HUNTS &&
+                !this.hasBredThisCycle &&
+                !alligator.hasBredThisCycle &&
+                !this.isBaby() &&
+                !alligator.isBaby();
+    }
+
+    @Override
+    public void breed(ServerWorld world, AnimalEntity other) {
+        this.hasBredThisCycle = true;
+        ((AlligatorEntity) other).hasBredThisCycle = true;
+        this.setLoveTicks(0);
+        other.setLoveTicks(0);
+        super.breed(world, other);
+        this.setBreedingAge(0);
+        other.setBreedingAge(0);
+    }
+
+
+    protected int getXpToDrop() {
+        if (this.isBaby()) {
+            return 1 + this.random.nextInt(3);
+        } else {
+            return 5 + this.random.nextInt(7);
+        }
+    }
+
 
     @Nullable
     @Override
@@ -643,7 +678,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     // Getters and Setters
     public boolean isLandBound() {
-        return landBound;
+        return !landBound;
     }
 
     public void setLandBound(boolean landBound) {

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "S": {
+      "item": "basicmobsmod:alligator_scute"
+    },
+    "W": {
+      "item": "minecraft:shield"
+    }
+  },
+  "pattern": [
+    " S ",
+    "SWS",
+    " S "
+  ],
+  "result": {
+    "count": 1,
+    "id": "basicmobsmod:scute_reinforced_shield"
+  }
+}
