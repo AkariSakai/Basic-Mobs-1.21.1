@@ -20,7 +20,7 @@ public class ModItems {
     }
 
     public static void  registerModItems() {
-        BasicMobsMod.LOGGER.info("[BasicMobsMod] Registering Mod Items.");
+        BasicMobsMod.LOGGER.info("[BasicMobs] Registering Mod Items.");
 
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.INGREDIENTS).register(entries -> {
             entries.add(ModItems.ALLIGATOR_SCUTE);

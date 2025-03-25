@@ -375,7 +375,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         }
     }
 
-
     private void ejectBabiesOneByOne() {
         if (!this.getPassengerList().isEmpty() && ejectTimer-- <= 0) {
             Entity passenger = this.getPassengerList().getFirst();
@@ -550,11 +549,11 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             if (passenger instanceof AlligatorEntity babyAlligator && babyAlligator.isBaby()) {
                 switch (passengerIndex) {
                     case 0 -> {
-                        offsetX = 0.2;  // Start closer to center for Baby 1
+                        offsetX = 0.2;
                         offsetZ = 0.2;
                     }
                     case 1 -> {
-                        offsetX = -0.2; // Start closer to center for Baby 2
+                        offsetX = -0.2;
                         offsetZ = -0.2;
                     }
 
@@ -563,24 +562,21 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 // Transition to the final positions once all babies are present
                 if (this.getPassengerList().size() == 3) {
                     switch (passengerIndex) {
-                        case 0 -> offsetZ = 0.5;  // Final position for Baby 1
-                        case 1 -> offsetZ = 0.05;  // Final position for Baby 2
+                        case 0 -> offsetZ = 0.5;
+                        case 1 -> offsetZ = 0.05;
                         case 2 -> {
                             offsetX = 0.2;
                             offsetZ = -0.35;
-                        }  // Final position for Baby 3
+                        }
                     }
                 }
 
-                // Rotate offsets based on parent yaw
                 double yawRad = Math.toRadians(this.getYaw()); // Convert yaw to radians
                 double rotatedX = offsetX * Math.cos(yawRad) - offsetZ * Math.sin(yawRad);
                 double rotatedZ = offsetX * Math.sin(yawRad) + offsetZ * Math.cos(yawRad);
 
-                // Set the passenger's position
                 positionUpdater.accept(passenger, this.getX() + rotatedX, this.getY() + offsetY, this.getZ() + rotatedZ);
             } else {
-                // For non-baby passengers, use the default method
                 super.updatePassengerPosition(passenger, positionUpdater);
             }
         }
@@ -612,7 +608,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         nbt.putInt("DailyHuntCount", this.dailyHuntCount);
         nbt.putLong("LastHuntDay", this.lastHuntDay);
         nbt.putBoolean("IsBaby", this.isBaby());
-        nbt.putBoolean("HasBredThisCycle", this.hasBredThisCycle); // Add this line
+        nbt.putBoolean("HasBredThisCycle", this.hasBredThisCycle);
     }
 
     @Override
@@ -621,12 +617,12 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.dailyHuntCount = nbt.getInt("DailyHuntCount");
         this.lastHuntDay = nbt.getLong("LastHuntDay");
         this.setBaby(nbt.getBoolean("IsBaby"));
-        this.hasBredThisCycle = nbt.getBoolean("HasBredThisCycle"); // Add this line
+        this.hasBredThisCycle = nbt.getBoolean("HasBredThisCycle");
     }
 
     @Override
     public boolean isBreedingItem(ItemStack stack) {
-        return  stack.isIn(ItemTags.MEAT);
+        return  stack.isIn(ItemTags.MEAT) || stack.isIn(ItemTags.FISHES);
     }
 
     @Override
