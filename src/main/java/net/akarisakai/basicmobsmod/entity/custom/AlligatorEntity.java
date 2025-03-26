@@ -85,6 +85,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private AnimatableInstanceCache cache = new SingletonAnimatableInstanceCache(this);
     private final AnimationState idleAnimationState = new AnimationState();
     private int idleAnimationTimeout = 0;
+    private boolean wasAttacking;
 
 
     // Constructor
@@ -237,8 +238,8 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        controllers.add(new AnimationController<>(this, "movementController", 0, this::movementIdlePredicate));
-        controllers.add(new AnimationController<>(this, "chaseController", 8, this::chasePredicate));
+        controllers.add(new AnimationController<>(this, "movementController", 10, this::movementIdlePredicate));
+        controllers.add(new AnimationController<>(this, "chaseController", 6, this::chasePredicate));
         controllers.add(new AnimationController<>(this, "biteController", 8, this::bitePredicate)
                 .triggerableAnim("bite", RawAnimation.begin().then("bite", Animation.LoopType.PLAY_ONCE)));
 
@@ -275,23 +276,18 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
         if (event.isMoving()) {
             if (this.isTouchingWater()) {
-                setAnimationWithSpeed(controller, "swim.transition", "swim", 10);
-            } else if (this.isAttacking()) {
-                setAnimationWithSpeed(controller, "walk.transition", "walk", 100);
+                controller.setAnimation(RawAnimation.begin().thenLoop("swim"));
+                controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() * 10));
             } else {
-                setAnimationWithSpeed(controller, "walk.transition", "walk", 10);
+                controller.setAnimation(RawAnimation.begin().thenLoop("walk"));
+                controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() *
+                        (this.isAttacking() ? 100 : 10)));
             }
         } else {
             if(this.isTouchingWater()) {
-                controller.setAnimation(
-                        RawAnimation.begin()
-                                .then("swim.idle", Animation.LoopType.LOOP)
-                );
+                controller.setAnimation(RawAnimation.begin().thenLoop("swim.idle"));
             } else {
-                controller.setAnimation(
-                        RawAnimation.begin()
-                                .then("alligator.idle", Animation.LoopType.LOOP)
-                );
+                controller.setAnimation(RawAnimation.begin().thenLoop("alligator.idle"));
             }
         }
         return PlayState.CONTINUE;
@@ -301,17 +297,22 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         AnimationController<?> controller = event.getController();
 
         if (this.isAttacking()) {
-            controller.setAnimation(
-                    RawAnimation.begin()
-                            .then("chase", Animation.LoopType.LOOP)
-            );
-            controller.setAnimationSpeed(1.5);
+            if (!wasAttacking) {
+                // Just started attacking - play chase animation
+                controller.setAnimation(RawAnimation.begin().thenLoop("chase"));
+                controller.setAnimationSpeed(1.5);
+            }
+            wasAttacking = true;
             return PlayState.CONTINUE;
         }
-        controller.setAnimation(
-                RawAnimation.begin()
-                        .then("bite", Animation.LoopType.PLAY_ONCE)
-        );
+        else if (wasAttacking) {
+            // Just stopped attacking - play bite animation
+            controller.setAnimation(RawAnimation.begin().then("bite", Animation.LoopType.PLAY_ONCE));
+            wasAttacking = false;
+            return PlayState.CONTINUE;
+        }
+
+        // After bite completes, stop the controller
         return PlayState.STOP;
     }
 
