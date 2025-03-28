@@ -126,6 +126,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.goalSelector.add(2, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
         this.goalSelector.add(2, new ActiveTargetGoal<>(this, FishEntity.class, true, this::canHuntAndExclude));
         this.goalSelector.add(3, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
+        this.goalSelector.add(3, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.FISHES), false));
         this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
         this.goalSelector.add(4, new RevengeGoal(this));
 
@@ -270,9 +271,11 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
         controllers.add(new AnimationController<>(this, "feedController", 0, this::feedPredicate)
                 .triggerableAnim("eat", RawAnimation.begin().then("eat", Animation.LoopType.PLAY_ONCE)));
-        controllers.add(new AnimationController<>(this, "baskController",state -> {
+        controllers.add(new AnimationController<>(this, "baskController", 10, state -> {
             if (this.isBasking()) {
                 return state.setAndContinue(RawAnimation.begin().thenLoop("basking"));
+            } else if (state.getController().getAnimationState() == AnimationController.State.RUNNING) {
+                return state.setAndContinue(RawAnimation.begin().thenPlay("basking").thenLoop("alligator.idle"));
             }
             return PlayState.STOP;
         }));
@@ -308,7 +311,12 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 controller.setAnimation(RawAnimation.begin().thenLoop("swim"));
                 controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() * ANIMATION_SPEED_FACTOR));
             } else {
-                controller.setAnimation(RawAnimation.begin().thenLoop("walk"));
+                if (controller.getCurrentAnimation() != null &&
+                        controller.getCurrentAnimation().animation().name().equals("basking")) {
+                    controller.setAnimation(RawAnimation.begin().thenPlay("basking").thenLoop("walk"));
+                } else {
+                    controller.setAnimation(RawAnimation.begin().thenLoop("walk"));
+                }
                 controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() *
                         (this.isAttacking() ? ATTACK_ANIMATION_SPEED_FACTOR : ANIMATION_SPEED_FACTOR)));
             }
@@ -316,7 +324,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             if (this.isTouchingWater()) {
                 controller.setAnimation(RawAnimation.begin().thenLoop("swim.idle"));
             } else if (this.isBasking()) {
-                controller.setAnimation(RawAnimation.begin().thenLoop("basking"));
+                return PlayState.STOP;
             } else {
                 controller.setAnimation(RawAnimation.begin().thenLoop("alligator.idle"));
             }

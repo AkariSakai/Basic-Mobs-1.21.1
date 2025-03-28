@@ -101,7 +101,7 @@ public class AlligatorEggBlock extends Block {
             AlligatorEntity alligator = ModEntities.ALLIGATOR.create(world);
             if (alligator != null) {
                 alligator.setBaby(true);
-                alligator.setBreedingAge(-24000); // Baby alligator
+                alligator.setBreedingAge(-24000);
                 alligator.setHomePos(pos);
                 alligator.refreshPositionAndAngles(
                         pos.getX() + 0.3 + i * 0.2,
@@ -126,17 +126,16 @@ public class AlligatorEggBlock extends Block {
     }
 
     private boolean shouldHatchProgress(World world, BlockPos pos) {
-        // Alligator eggs hatch more often at night and during rain
         float timeOfDay = world.getSkyAngle(1.0F);
         boolean isNight = timeOfDay < 0.25 || timeOfDay > 0.75;
         boolean isRaining = world.isRaining() && world.isSkyVisible(pos);
 
         if (isNight && isRaining) {
-            return world.random.nextInt(10) == 0; // Faster hatching during rainy nights
+            return world.random.nextInt(10) == 0;
         } else if (isNight) {
-            return world.random.nextInt(20) == 0; // Normal night hatching
+            return world.random.nextInt(20) == 0;
         } else {
-            return world.random.nextInt(100) == 0; // Slow daytime hatching
+            return world.random.nextInt(100) == 0;
         }
     }
 
