@@ -24,7 +24,6 @@ public class AlligatorAttackGoal extends MeleeAttackGoal {
     }
 
     private boolean canAlligatorAttackTarget(LivingEntity target) {
-        // Don't attack if mounted or if target is an alligator
         if (alligator.hasVehicle() || target instanceof AlligatorEntity) {
             return false;
         }

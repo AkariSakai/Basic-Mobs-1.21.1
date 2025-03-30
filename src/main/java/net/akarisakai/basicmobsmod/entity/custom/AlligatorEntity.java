@@ -2,6 +2,9 @@ package net.akarisakai.basicmobsmod.entity.custom;
 
 import net.akarisakai.basicmobsmod.entity.ModEntities;
 import net.akarisakai.basicmobsmod.entity.ai.alligator.*;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.entity.AnimationState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
@@ -36,6 +39,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
@@ -73,11 +77,9 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             new EntityAttributeModifier(BABY_HEALTH_MODIFIER_ID, -0.7, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
     private static final EntityAttributeModifier BABY_DAMAGE_MODIFIER =
             new EntityAttributeModifier(BABY_DAMAGE_MODIFIER_ID, -0.7, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-    private static final double WATER_SURFACE_OFFSET = 0.25;
-    private static final double BABY_WATER_SURFACE_OFFSET = 0.85;
-    private static final double SWIM_TARGET_SPEED = 0.3;
-    private static final double SWIM_BASE_SPEED = 0.05;
-    private static final double SWIM_SPEED_FACTOR = 0.02;
+    private static final Set<Block> BREAKABLE_WATER_PLANTS = Set.of(
+            Blocks.LILY_PAD
+    );
     private static final String NBT_DAILY_HUNT_COUNT = "DailyHuntCount";
     private static final String NBT_LAST_HUNT_DAY = "LastHuntDay";
     private static final String NBT_IS_BABY = "IsBaby";
@@ -94,10 +96,9 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     // Instance variables
     private Box cachedSearchBox;
     private boolean hasBredThisCycle = false;
-    private boolean activelyTraveling;
-    private boolean landBound;
     private BlockPos homePos;
     private int ejectTimer = 0;
+    private int baskingCooldown = 0;
     private int remountCooldown = 0;
     private int dailyHuntCount = 0;
     private long lastHuntDay = -1;
@@ -109,38 +110,32 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private int idleAnimationTimeout = 0;
     private boolean wasAttacking;
     private int blinkTimer = 0;
-    private int nextBlinkTime = 40 + random.nextInt(60); // 5-6 seconds initial delay
+    private int nextBlinkTime = 40 + random.nextInt(60);
 
 
 
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
         super(entityType, world);
         this.lookControl = this.createLookControl();
-
+        this.moveControl = this.createMoveControl();
     }
 
     @Override
     protected void initGoals() {
-        // --- Attack & Targeting ---
-        this.goalSelector.add(4, new AlligatorAttackGoal(this, 2, true));
-        this.goalSelector.add(2, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
-        this.goalSelector.add(2, new ActiveTargetGoal<>(this, FishEntity.class, true, this::canHuntAndExclude));
-        this.goalSelector.add(3, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
-        this.goalSelector.add(3, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.FISHES), false));
+        this.goalSelector.add(1, new FleeAtLowHealthGoal(this, 2, 10.0f));
+        this.goalSelector.add(2, new AlligatorAttackGoal(this, 2, true)); // Main attack
+        this.goalSelector.add(3, new RevengeGoal(this));
         this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
-        this.goalSelector.add(4, new RevengeGoal(this));
-
-        // --- Movement & Navigation ---
-        this.goalSelector.add(1, new FollowParentGoal(this, 1.10));
-        this.goalSelector.add(1, new BaskInSunGoal(this));
-        this.goalSelector.add(6, new WanderAroundFarGoal(this, 1.00));
-        this.goalSelector.add(7, new WanderInWaterGoal(this, 1.00));
-        this.goalSelector.add(8, new WanderOnLandGoal(this, 1.00, 50));
-
-        // --- Interaction & Misc ---
+        this.goalSelector.add(5, new BaskInSunGoal(this));
+        this.goalSelector.add(6, new AnimalMateGoal(this, 1.0));
+        this.goalSelector.add(7, new FollowParentGoal(this, 1.10));
+        this.goalSelector.add(11, new SwimAroundGoal(this, 1.0F, 10));
         this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 4.0F));
         this.goalSelector.add(10, new LookAroundGoal(this));
-        this.goalSelector.add(0, new AnimalMateGoal(this, 1.0));
+        this.targetSelector.add(4, new ActiveTargetGoal<>(this, PassiveEntity.class, true, this::canHuntAndExclude));
+        this.targetSelector.add(4, new ActiveTargetGoal<>(this, FishEntity.class, true, this::canHuntAndExclude));
+        this.goalSelector.add(8, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.MEAT), false));
+        this.goalSelector.add(8, new TemptGoal(this, 1.25, Ingredient.fromTag(ItemTags.FISHES), false));
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
@@ -158,6 +153,10 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     public ActionResult interactMob(PlayerEntity player, Hand hand) {
         ItemStack itemStack = player.getStackInHand(hand);
+
+        if (this.isBasking()) {
+            return ActionResult.PASS;
+        }
 
         if (itemStack.isIn(ItemTags.MEAT) || this.isBreedingItem(itemStack)) {
             long currentTime = this.getWorld().getTime();
@@ -207,7 +206,8 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
 
     protected MoveControl createMoveControl() {
-        return new AlligatorMoveControl(this);
+        return new AlligatorMoveControl(this,
+                85,  10,  1.0f, 1.0f, true);
     }
 
     private void tryMountParent() {
@@ -233,7 +233,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         );
 
         if (!nearbyAdults.isEmpty()) {
-            AlligatorEntity closestAdult = nearbyAdults.get(0);
+            AlligatorEntity closestAdult = nearbyAdults.getFirst();
             double closestDist = this.squaredDistanceTo(closestAdult);
 
             for (int i = 1; i < nearbyAdults.size(); i++) {
@@ -374,41 +374,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         return target != null && this.dailyHuntCount < MAX_DAILY_HUNTS;
     }
 
-    private void handleWaterMovement() {
-        LivingEntity target = this.getTarget();
-        if (target != null && target.isAlive() && target.isTouchingWater()) {
-            swimTowardsTarget(target);
-        } else {
-            moveToWaterSurface();
-        }
-    }
-    
-    private void swimTowardsTarget(LivingEntity target) {
-        if (this.hasVehicle()) return;
-
-        double deltaX = target.getX() - this.getX();
-        double deltaZ = target.getZ() - this.getZ();
-        double horizontalDistSqr = deltaX * deltaX + deltaZ * deltaZ;
-
-        if (horizontalDistSqr < 0.01) return; // 0.1^2
-
-        double deltaY = target.getY() - this.getY();
-        double distance = Math.sqrt(horizontalDistSqr + deltaY * deltaY);
-
-        double targetSpeed = Math.min(SWIM_TARGET_SPEED, SWIM_BASE_SPEED + (distance * SWIM_SPEED_FACTOR));
-        double speed = MathHelper.lerp(0.1, this.getVelocity().length(), targetSpeed);
-
-        this.setVelocity(
-                MathHelper.lerp(0.2, this.getVelocity().x, (deltaX / distance) * speed),
-                MathHelper.lerp(0.5, this.getVelocity().y, (deltaY / distance) * speed),
-                MathHelper.lerp(0.2, this.getVelocity().z, (deltaZ / distance) * speed)
-        );
-
-        if (!this.hasVehicle()) {
-            this.setYaw((float)(MathHelper.atan2(deltaZ, deltaX) * (180.0 / Math.PI)) - 90.0F);
-        }
-    }
-
     private void ejectBabiesOneByOne() {
         if (!this.getPassengerList().isEmpty() && ejectTimer-- <= 0) {
             Entity passenger = this.getPassengerList().getFirst();
@@ -437,8 +402,37 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         for (Entity passenger : this.getPassengerList()) {
             if (passenger instanceof AlligatorEntity baby && baby.isBaby()) {
                 baby.stopRiding();
-                baby.setVelocity(this.getVelocity().multiply(EJECT_VELOCITY_MULTIPLIER).add(0, EJECT_UPWARD_VELOCITY, 0));
+                baby.setVelocity(
+                        (this.random.nextFloat() - 0.5) * 0.2,
+                        EJECT_UPWARD_VELOCITY,
+                        (this.random.nextFloat() - 0.5) * 0.2
+                );
                 baby.remountCooldown = DISMOUNT_COOLDOWN;
+            }
+        }
+    }
+
+    private void breakWaterPlants() {
+        if (this.horizontalCollision && this.getWorld().getGameRules().getBoolean(GameRules.DO_MOB_GRIEFING)) {
+            boolean brokeAny = false;
+            Box box = this.getBoundingBox().expand(0.2);
+
+            for (BlockPos blockPos : BlockPos.iterate(
+                    MathHelper.floor(box.minX),
+                    MathHelper.floor(box.minY),
+                    MathHelper.floor(box.minZ),
+                    MathHelper.floor(box.maxX),
+                    MathHelper.floor(box.maxY),
+                    MathHelper.floor(box.maxZ))) {
+
+                BlockState blockState = this.getWorld().getBlockState(blockPos);
+                if (BREAKABLE_WATER_PLANTS.contains(blockState.getBlock())) {
+                    brokeAny = this.getWorld().breakBlock(blockPos, true, this) || brokeAny;
+                }
+            }
+
+            if (!brokeAny && this.isTouchingWater() && this.isOnGround()) {
+                this.jump();
             }
         }
     }
@@ -494,41 +488,24 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         }
     }
 
-    private void moveToWaterSurface() {
-        BlockPos waterSurfacePos = this.getBlockPos();
-
-        for (int i = 0; i < 10; i++) {
-            BlockPos checkPos = waterSurfacePos.up(i);
-            if (!this.getWorld().getFluidState(checkPos).isStill()) {
-                break;
-            }
-            waterSurfacePos = checkPos;
-        }
-
-        double waterSurfaceY = waterSurfacePos.getY() + this.getHeight() * WATER_SURFACE_OFFSET + (this.isBaby() ? BABY_WATER_SURFACE_OFFSET : WATER_SURFACE_OFFSET);
-        double deltaY = waterSurfaceY - this.getY();
-        double newVelY = MathHelper.lerp(0.2, this.getVelocity().y, deltaY * 0.1);
-
-        this.setVelocity(this.getVelocity().x, newVelY, this.getVelocity().z);
-    }
-
     @Override
     public void tick() {
         super.tick();
 
-        // Only check daily hunt count every second (20 ticks)
+        if (baskingCooldown > 0) {
+            baskingCooldown--;
+        }
         if (this.age % 20 == 0) {
             resetDailyHuntCount();
         }
 
-        if (age % 5 == 0) { // Only check every 5 ticks for performance
+        if (age % 5 == 0) {
             updateBlinking();
         }
 
         if (this.getWorld().isClient()) {
             setupAnimationStates();
         } else {
-            // Server-side optimizations
             if (remountCooldown > 0) remountCooldown--;
             if (ejectTimer > 0) ejectTimer--;
 
@@ -540,16 +517,18 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 if (remountCooldown == 0) {
                     tryMountParent();
                 }
-                handleWaterMovement();
             } else {
                 this.setNoGravity(false);
                 ejectBabiesOneByOne();
             }
 
-            // Feeding effects
             if (feedingSoundDelay > 0 && --feedingSoundDelay == 0) {
                 this.getWorld().playSound(null, this.getX(), this.getY(), this.getZ(),
                         SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.NEUTRAL, 1.2F, 1.0F);
+            }
+
+            if (this.isTouchingWater()) {
+                breakWaterPlants();
             }
 
             if (feedingDelay > 0 && --feedingDelay == 0) {
@@ -566,11 +545,13 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         }
     }
 
+
     @Override
     public boolean damage(DamageSource source, float amount) {
         if (this.isBaby() && this.hasVehicle()) {
             this.stopRiding();
             this.remountCooldown = DISMOUNT_COOLDOWN;
+            this.setVelocity(0, 0, 0);
         } else if (this.hasPassengers()) {
             ejectAllPassengers();
         }
@@ -591,7 +572,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     @Override
     public void updatePassengerPosition(Entity passenger, PositionUpdater positionUpdater) {
         if (this.hasPassenger(passenger)) {
-            double offsetY = PASSENGER_Y_OFFSET;
             double offsetX = 0.0;
             double offsetZ = 0.0;
 
@@ -624,7 +604,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 double rotatedX = offsetX * Math.cos(yawRad) - offsetZ * Math.sin(yawRad);
                 double rotatedZ = offsetX * Math.sin(yawRad) + offsetZ * Math.cos(yawRad);
 
-                positionUpdater.accept(passenger, this.getX() + rotatedX, this.getY() + offsetY, this.getZ() + rotatedZ);
+                positionUpdater.accept(passenger, this.getX() + rotatedX, this.getY() + PASSENGER_Y_OFFSET, this.getZ() + rotatedZ);
             } else {
                 super.updatePassengerPosition(passenger, positionUpdater);
             }
@@ -734,13 +714,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         }
     }
 
-    public boolean isLandBound() {
-        return !landBound;
-    }
-
-    public void setLandBound(boolean landBound) {
-        this.landBound = landBound;
-    }
 
     public BlockPos getHomePos() {
         return homePos;
@@ -750,11 +723,11 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         this.homePos = homePos;
     }
 
-    public boolean isActivelyTraveling() {
-        return activelyTraveling;
+    public int getBaskingCooldown() {
+        return baskingCooldown;
+    }
+    public void setBaskingCooldown(int cooldown) {
+        this.baskingCooldown = cooldown;
     }
 
-    public void setActivelyTraveling(boolean activelyTraveling) {
-        this.activelyTraveling = activelyTraveling;
-    }
 }

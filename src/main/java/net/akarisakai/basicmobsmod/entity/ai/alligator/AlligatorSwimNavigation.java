@@ -14,7 +14,7 @@ public class AlligatorSwimNavigation extends AmphibiousSwimNavigation {
 
     @Override
     public boolean isValidPosition(BlockPos pos) {
-        return this.entity instanceof AlligatorEntity alligatorEntity && alligatorEntity.isActivelyTraveling()
+        return this.entity instanceof AlligatorEntity
                 ? this.world.getBlockState(pos).isOf(Blocks.WATER)
                 : !this.world.getBlockState(pos.down()).isAir();
     }

@@ -3,7 +3,7 @@
   "package": "net.akarisakai.basicmobsmod.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "LivingEntityMixin"
+    "ShieldKnockbackMixin"
   ],
   "injectors": {
     "defaultRequire": 1

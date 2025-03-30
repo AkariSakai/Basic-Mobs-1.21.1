@@ -17,11 +17,9 @@ public class BaskInSunGoal extends Goal {
     private int baskingCooldown = 0;
     @Nullable
     private BlockPos baskingSpot;
-    private int stuckTicks = 0;
-    private static final int COOLDOWN_TICKS = 600; // 30 seconds
-    private static final int MAX_STUCK_TICKS = 100;
-    private static final int MAX_SEARCH_ITERATIONS = 100;
-    private static final Random RANDOM = new Random();
+    private int chanceCooldown = 0;
+    private static final int COOLDOWN_TICKS = 600;
+    private static final float CHANCE = 0.1F;
 
     public BaskInSunGoal(AlligatorEntity alligator) {
         this.alligator = alligator;
@@ -30,12 +28,21 @@ public class BaskInSunGoal extends Goal {
 
     @Override
     public boolean canStart() {
-        if (baskingCooldown > 0) return false; // On cooldown
+        if (alligator.getBaskingCooldown() > 0) return false;
+
         if (alligator.isBaby() || alligator.getWorld().isNight() || alligator.getWorld().isRaining()) return false;
         if (!alligator.isTouchingWater() || alligator.hasPassengers() || alligator.isAttacking() || alligator.getTarget() != null) return false;
-        if (RANDOM.nextFloat() > 0.7f) return false;
+        if (chanceCooldown > 0) {
+            chanceCooldown--;
+            return false;
+        }
 
+        if (alligator.getRandom().nextFloat() > CHANCE) {
+            chanceCooldown = 100;
+            return false;
+        }
         this.baskingSpot = findBaskingSpot();
+        System.out.println("BaskInSunGoal: Goal started, moving to basking spot at " + baskingSpot);
         return baskingSpot != null;
     }
 
@@ -43,55 +50,32 @@ public class BaskInSunGoal extends Goal {
     private BlockPos findBaskingSpot() {
         BlockPos startPos = alligator.getBlockPos();
         World world = alligator.getWorld();
-        Queue<BlockPos> queue = new LinkedList<>();
-        Set<BlockPos> visited = new HashSet<>();
+        int searchRadius = 16;
 
-        queue.add(startPos);
-        visited.add(startPos);
+        Optional<BlockPos> closestSpot = BlockPos.findClosest(startPos, searchRadius, searchRadius, pos -> {
+            BlockPos groundPos = findGroundPosition(world, pos);
+            return groundPos != null && isValidBaskingSpot(world, groundPos);
+        });
 
-        int maxRadius = 12;
+        if (closestSpot.isEmpty()) return null;
+
         BlockPos bestSpot = null;
         double bestScore = Double.NEGATIVE_INFINITY;
-        int iterations = 0;
 
-        while (!queue.isEmpty() && iterations++ < MAX_SEARCH_ITERATIONS) {
-            BlockPos currentPos = queue.poll();
-            double distanceFromStart = Math.sqrt(startPos.getSquaredDistance(currentPos));
-
-            // Prioritize closer spots with a weighting factor
-            double proximityWeight = 1.0 - (distanceFromStart / maxRadius);
-
-            BlockPos groundPos = findGroundPosition(world, currentPos);
+        for (BlockPos pos : BlockPos.iterateOutwards(closestSpot.get(), 4, 1, 4)) { // Expanded search area
+            BlockPos groundPos = findGroundPosition(world, pos);
             if (groundPos != null && isValidBaskingSpot(world, groundPos)) {
-                double score = calculateBaskingScore(world, groundPos) * (0.5 + 0.5 * proximityWeight);
+                double score = calculateBaskingScore(world, groundPos, startPos);
                 if (score > bestScore) {
                     bestScore = score;
                     bestSpot = groundPos;
                 }
             }
-            List<BlockPos> neighbors = new ArrayList<>();
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    if (dx == 0 && dz == 0) continue;
-                    BlockPos nextPos = currentPos.add(dx, 0, dz);
-                    if (!visited.contains(nextPos)) {
-                        double dist = startPos.getSquaredDistance(nextPos);
-                        if (dist <= maxRadius * maxRadius) {
-                            neighbors.add(nextPos);
-                        }
-                    }
-                }
-            }
-
-            neighbors.sort(Comparator.comparingDouble(startPos::getSquaredDistance));
-            queue.addAll(neighbors);
-            visited.addAll(neighbors);
         }
-
         return bestSpot;
     }
 
-    private double calculateBaskingScore(World world, BlockPos pos) {
+    private double calculateBaskingScore(World world, BlockPos pos, BlockPos startPos) {
         double score = 0.0;
 
         if (world.isSkyVisible(pos)) score += 5.0;
@@ -104,28 +88,22 @@ public class BaskInSunGoal extends Goal {
             score += Math.min(waterDistance * 2.0, 8.0);
         }
 
+        double distanceFromStart = Math.sqrt(startPos.getSquaredDistance(pos));
+        double maxDistance = 16.0; // Match the search radius
+        double proximityBonus = 4.0 * (1.0 - (distanceFromStart / maxDistance));
+        score += proximityBonus;
+
         return score;
     }
 
     private double getNearestWaterDistance(World world, BlockPos pos) {
-        int searchRadius = 6;
-        double minDistance = searchRadius;
+        BlockPos closestWater = BlockPos.findClosest(pos, 6, 3,
+                checkPos -> world.getFluidState(checkPos).isIn(FluidTags.WATER)
+        ).orElse(null);
 
-        for (int x = -searchRadius; x <= searchRadius; x++) {
-            for (int y = -1; y <= 1; y++) {
-                for (int z = -searchRadius; z <= searchRadius; z++) {
-                    BlockPos checkPos = pos.add(x, y, z);
-                    if (world.getFluidState(checkPos).isIn(FluidTags.WATER)) {
-                        double dist = Math.sqrt(pos.getSquaredDistance(checkPos));
-                        if (dist < minDistance) {
-                            minDistance = dist;
-                        }
-                    }
-                }
-            }
-        }
-        return minDistance;
+        return closestWater == null ? 6.0 : Math.sqrt(pos.getSquaredDistance(closestWater));
     }
+
 
     private boolean isNearEdge(World world, BlockPos pos) {
         int edgeThreshold = 3;
@@ -177,31 +155,23 @@ public class BaskInSunGoal extends Goal {
     @Override
     public void start() {
         if (baskingSpot == null) return;
-        alligator.setLandBound(true);
         alligator.getNavigation().startMovingTo(
                 baskingSpot.getX() + 0.5, baskingSpot.getY(), baskingSpot.getZ() + 0.5, 1.2
         );
         baskingTime = 0;
         isBasking = false;
-        stuckTicks = 0;
     }
 
     @Override
     public boolean shouldContinue() {
         if (alligator.getWorld().isRaining() || alligator.getWorld().isNight()) return false;
         if (baskingTime > 2000) return false;
+        if (alligator.hurtTime > 0) return false;
 
         if (baskingSpot != null) {
-            double distance = alligator.squaredDistanceTo(baskingSpot.getX(), baskingSpot.getY(), baskingSpot.getZ());
-            if (distance < 2.25) {
-                return true;
-            }
-
-            if (alligator.getNavigation().isIdle()) {
-                stuckTicks++;
-                return stuckTicks <= MAX_STUCK_TICKS;
-            } else {
-                stuckTicks = 0;
+            double distance = alligator.squaredDistanceTo(baskingSpot.getX() + 0.5, baskingSpot.getY(), baskingSpot.getZ() + 0.5);
+            if (isBasking && distance > 3.0) {
+                return false;
             }
         }
 
@@ -215,14 +185,26 @@ public class BaskInSunGoal extends Goal {
         }
         baskingTime++;
 
-        if (alligator.isTouchingWater()) {
+        if (alligator.hurtTime > 0) {
+            stop();
+            return;
+        }
 
+        if (alligator.isTouchingWater()) {
             if (alligator.getNavigation().isIdle() || alligator.getVelocity().lengthSquared() < 0.02) {
                 BlockPos frontPos = alligator.getBlockPos().add(alligator.getMovementDirection().getVector());
-
                 if (alligator.getWorld().getBlockState(frontPos).isSolidBlock(alligator.getWorld(), frontPos)) {
                     alligator.setVelocity(alligator.getVelocity().x, 0.5, alligator.getVelocity().z);
                 }
+            }
+        } else {
+            if (!isBasking && baskingSpot != null && alligator.getNavigation().isIdle()) {
+                alligator.getNavigation().startMovingTo(
+                        baskingSpot.getX() + 0.5,
+                        baskingSpot.getY(),
+                        baskingSpot.getZ() + 0.5,
+                        1.2
+                );
             }
         }
 
@@ -232,13 +214,19 @@ public class BaskInSunGoal extends Goal {
                     baskingSpot.getY(),
                     baskingSpot.getZ() + 0.5
             );
-            if (distance < 4.0) {
-                alligator.getNavigation().stop();
+
+            if (isBasking && distance > 3.0) {
+                stop();
+                return;
+            }
+
+            if (distance < 3.0) {
                 if (!alligator.isTouchingWater() && alligator.getWorld().getBlockState(alligator.getBlockPos().down()).isSolidBlock(alligator.getWorld(), alligator.getBlockPos().down())) {
                     if (!isBasking) {
                         alligator.setBasking(true);
                         isBasking = true;
                         baskingTime = 0;
+                        alligator.getNavigation().stop();
                     }
                 }
             }
@@ -248,11 +236,9 @@ public class BaskInSunGoal extends Goal {
     @Override
     public void stop() {
         alligator.setBasking(false);
-        alligator.setLandBound(false);
         isBasking = false;
         baskingSpot = null;
-        stuckTicks = 0;
-        baskingCooldown = COOLDOWN_TICKS;
+        alligator.setBaskingCooldown(COOLDOWN_TICKS);
     }
 
     @Override

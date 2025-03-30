@@ -7,5 +7,9 @@
   "item.basicmobsmod.cooked_alligator_meat": "Cooked Alligator Meat",
   "item.basicmobsmod.scute_reinforced_shield": "Scute Reinforced Shield",
   "item.basicmobsmod.raw_alligator_meat": "Raw Alligator Meat",
-  "item.basicmobsmod.alligator_scute": "Alligator Scute"
+  "item.basicmobsmod.alligator_scute": "Alligator Scute",
+  "tooltip.basicmobsmod.scute_shield.special_properties": "Features:",
+  "tooltip.basicmobsmod.scute_shield.pushback": "Repel foes with a forceful block",
+  "tooltip.basicmobsmod.scute_shield.reduced_cooldown": "Reduced shield disable time",
+  "tooltip.basicmobsmod.scute_shield.repair": "Repairable with Alligator Scute"
 }

@@ -1,115 +1,176 @@
 package net.akarisakai.basicmobsmod.entity.ai.alligator;
 
-import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
+
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.ai.control.MoveControl;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.registry.tag.BlockTags;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.shape.VoxelShape;
 
 public class AlligatorMoveControl extends MoveControl {
-    private static final float MAX_WATER_SPEED = 1.2F;
-    private static final float MIN_WATER_SPEED = 0.08F;
-    private static final float BABY_SPEED_MODIFIER = 0.33F;
-    private static final float LAND_SPEED_MODIFIER = 0.5F;
-    private static final float VEHICLE_SPEED_MODIFIER = 0.5F;
-    private static final float HOME_AREA_RADIUS = 16.0F;
-    private static final float BUOYANCY_FACTOR = 0.005F;
-    private static final float MOVEMENT_THRESHOLD = 1.0E-5F;
+    private static final float MAX_PITCH_CHANGE = 5.0F;
+    private static final float MAX_YAW_CHANGE = 90.0F;
+    private final int pitchChange;
+    private final int yawChange;
+    private final float speedInWater;
+    private final float speedOnLand;
+    private final boolean buoyant;
 
-    private final AlligatorEntity alligator;
-    private float targetYaw;
-
-    public AlligatorMoveControl(AlligatorEntity alligator) {
-        super(alligator);
-        this.alligator = alligator;
-        this.targetYaw = alligator.getYaw();
-    }
-
-    private void updateMovementSpeed() {
-        float baseSpeed = (float) this.speed;
-
-        if (this.alligator.isTouchingWater()) {
-            // Apply buoyancy effect
-            this.alligator.setVelocity(this.alligator.getVelocity().add(0.0, BUOYANCY_FACTOR, 0.0));
-
-            // Slow down when far from home
-            if (!this.alligator.getHomePos().isWithinDistance(this.alligator.getPos(), HOME_AREA_RADIUS)) {
-                baseSpeed *= LAND_SPEED_MODIFIER;
-            }
-
-            // Babies are slower
-            if (this.alligator.isBaby()) {
-                baseSpeed *= BABY_SPEED_MODIFIER;
-            }
-
-            // Clamp water speed
-            baseSpeed = MathHelper.clamp(baseSpeed, MIN_WATER_SPEED, MAX_WATER_SPEED);
-        } else if (this.alligator.isOnGround()) {
-            // Slower on land
-            baseSpeed *= LAND_SPEED_MODIFIER;
-        }
-
-        // Slow down when carrying passengers
-        if (this.alligator.hasVehicle()) {
-            baseSpeed *= VEHICLE_SPEED_MODIFIER;
-        }
-
-        this.alligator.setMovementSpeed(baseSpeed);
+    public AlligatorMoveControl(MobEntity entity, int pitchChange, int yawChange, float speedInWater, float speedOnLand, boolean buoyant) {
+        super(entity);
+        this.pitchChange = pitchChange;
+        this.yawChange = yawChange;
+        this.speedInWater = speedInWater;
+        this.speedOnLand = speedOnLand;
+        this.buoyant = buoyant;
     }
 
     @Override
     public void tick() {
-        this.updateMovementSpeed();
-
-        if (this.state == State.MOVE_TO && !this.alligator.getNavigation().isIdle()) {
-            Vec3d targetVec = new Vec3d(this.targetX, this.targetY, this.targetZ);
-            Vec3d currentPos = this.alligator.getPos();
-            Vec3d direction = targetVec.subtract(currentPos);
-            double distance = direction.length();
-
-            if (distance < MOVEMENT_THRESHOLD) {
-                this.alligator.setMovementSpeed(0.0F);
-                return;
-            }
-
-            // Normalize direction vector
-            direction = direction.multiply(1.0 / distance);
-
-            // Calculate target yaw (horizontal rotation)
-            this.targetYaw = (float)(MathHelper.atan2(direction.z, direction.x) * (180F / Math.PI)) - 90F;
-
-            // Smooth rotation
-            this.alligator.setYaw(this.wrapDegrees(this.alligator.getYaw(), this.targetYaw, 5.0F));
-            this.alligator.bodyYaw = this.alligator.getYaw();
-            this.alligator.headYaw = this.alligator.getYaw();
-
-            // Calculate vertical movement factor
-            float verticalFactor = (float)direction.y * 0.1F;
-
-            // Apply movement
-            float currentSpeed = (float) MathHelper.lerp(0.125F, this.alligator.getMovementSpeed(), this.speed);
-            this.alligator.setMovementSpeed(currentSpeed);
-
-            // Adjust velocity
-            Vec3d currentVelocity = this.alligator.getVelocity();
-            this.alligator.setVelocity(
-                    currentVelocity.add(
-                            direction.x * currentSpeed * 0.1,
-                            verticalFactor * currentSpeed,
-                            direction.z * currentSpeed * 0.1
-                    )
-            );
+        if (this.entity.isTouchingWater()) {
+            handleWaterMovement();
         } else {
-            this.alligator.setMovementSpeed(0.0F);
+            handleLandMovement();
         }
     }
 
-    protected float wrapDegrees(float current, float target, float step) {
-        float angle = MathHelper.wrapDegrees(target - current);
-        if (angle > step) {
-            angle = step;
-        } else if (angle < -step) {
-            angle = -step;
+    private void handleWaterMovement() {
+        if (this.buoyant) {
+            this.entity.setVelocity(this.entity.getVelocity().add(0.0, 0.005, 0.0));
         }
-        return current + angle;
+
+        if (this.state == State.MOVE_TO && !this.entity.getNavigation().isIdle()) {
+            double dx = this.targetX - this.entity.getX();
+            double dy = this.targetY - this.entity.getY();
+            double dz = this.targetZ - this.entity.getZ();
+            double distanceSquared = dx * dx + dy * dy + dz * dz;
+
+            if (distanceSquared < 2.5000003E-7F) {
+                this.entity.setForwardSpeed(0.0F);
+                return;
+            }
+
+            // Calculate yaw (horizontal rotation)
+            float targetYaw = (float)(MathHelper.atan2(dz, dx) * (180F / Math.PI)) - 90.0F;
+            this.entity.setYaw(this.wrapDegrees(this.entity.getYaw(), targetYaw, this.yawChange));
+            this.entity.bodyYaw = this.entity.getYaw();
+            this.entity.headYaw = this.entity.getYaw();
+
+            // Movement speed
+            float baseSpeed = (float)(this.speed * this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
+            this.entity.setMovementSpeed(baseSpeed * this.speedInWater);
+
+            // Calculate pitch (vertical rotation) for swimming up/down
+            if (Math.abs(dy) > 1.0E-5F) {
+                float targetPitch = -((float)(MathHelper.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * (180F / Math.PI)));
+                targetPitch = MathHelper.clamp(MathHelper.wrapDegrees(targetPitch), -this.pitchChange, this.pitchChange);
+                this.entity.setPitch(this.wrapDegrees(this.entity.getPitch(), targetPitch, MAX_PITCH_CHANGE));
+            }
+
+            // Apply movement
+            float pitchRad = this.entity.getPitch() * (float)(Math.PI / 180F);
+            this.entity.forwardSpeed = MathHelper.cos(pitchRad) * baseSpeed;
+            this.entity.upwardSpeed = -MathHelper.sin(pitchRad) * baseSpeed;
+        } else {
+            stopMovement();
+        }
+    }
+
+    private void handleLandMovement() {
+        if (this.state == State.STRAFE) {
+            handleStrafing();
+        } else if (this.state == State.MOVE_TO) {
+            handleMoveTo();
+        } else if (this.state == State.JUMPING) {
+            handleJumping();
+        } else {
+            stopMovement();
+        }
+    }
+
+    private void handleStrafing() {
+        float movementSpeed = (float)this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED);
+        float adjustedSpeed = (float)this.speed * movementSpeed * this.speedOnLand;
+        float forward = this.forwardMovement;
+        float sideways = this.sidewaysMovement;
+        float magnitude = MathHelper.sqrt(forward * forward + sideways * sideways);
+
+        if (magnitude < 1.0F) {
+            magnitude = 1.0F;
+        }
+
+        magnitude = adjustedSpeed / magnitude;
+        forward *= magnitude;
+        sideways *= magnitude;
+
+        float sinYaw = MathHelper.sin(this.entity.getYaw() * (float)(Math.PI / 180F));
+        float cosYaw = MathHelper.cos(this.entity.getYaw() * (float)(Math.PI / 180F));
+        float strafeX = forward * cosYaw - sideways * sinYaw;
+        float strafeZ = sideways * cosYaw + forward * sinYaw;
+
+        if (!isWalkablePosition(strafeX, strafeZ)) {
+            this.forwardMovement = 1.0F;
+            this.sidewaysMovement = 0.0F;
+        }
+
+        this.entity.setMovementSpeed(adjustedSpeed);
+        this.entity.setForwardSpeed(this.forwardMovement);
+        this.entity.setSidewaysSpeed(this.sidewaysMovement);
+        this.state = State.WAIT;
+    }
+
+    private void handleMoveTo() {
+        this.state = State.WAIT;
+        double dx = this.targetX - this.entity.getX();
+        double dy = this.targetY - this.entity.getY();
+        double dz = this.targetZ - this.entity.getZ();
+        double distanceSquared = dx * dx + dy * dy + dz * dz;
+
+        if (distanceSquared < 2.5000003E-7F) {
+            this.entity.setForwardSpeed(0.0F);
+            return;
+        }
+
+        float targetYaw = (float)(MathHelper.atan2(dz, dx) * (180F / Math.PI)) - 90.0F;
+        this.entity.setYaw(this.wrapDegrees(this.entity.getYaw(), targetYaw, MAX_YAW_CHANGE));
+
+        float baseSpeed = (float)(this.speed * this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
+        this.entity.setMovementSpeed(baseSpeed * this.speedOnLand);
+
+        // Handle obstacles and jumping
+        BlockPos pos = this.entity.getBlockPos();
+        BlockState state = this.entity.getWorld().getBlockState(pos);
+        VoxelShape shape = state.getCollisionShape(this.entity.getWorld(), pos);
+
+        if ((dy > this.entity.getStepHeight() && dx * dx + dz * dz < Math.max(1.0F, this.entity.getWidth())) ||
+                (!shape.isEmpty() && this.entity.getY() < shape.getMax(Direction.Axis.Y) + pos.getY() &&
+                        !state.isIn(BlockTags.DOORS) && !state.isIn(BlockTags.FENCES))) {
+            this.entity.getJumpControl().setActive();
+            this.state = State.JUMPING;
+        }
+    }
+
+    private void handleJumping() {
+        this.entity.setMovementSpeed((float)(this.speed * this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED) * this.speedOnLand));
+        if (this.entity.isOnGround()) {
+            this.state = State.WAIT;
+        }
+    }
+
+    private void stopMovement() {
+        this.entity.setMovementSpeed(0.0F);
+        this.entity.setSidewaysSpeed(0.0F);
+        this.entity.setUpwardSpeed(0.0F);
+        this.entity.setForwardSpeed(0.0F);
+    }
+
+    private boolean isWalkablePosition(float xOffset, float zOffset) {
+        // Implementation from MoveControl
+        // Check if the position is walkable
+        return true; // Simplified - implement proper path node checking if needed
     }
 }
