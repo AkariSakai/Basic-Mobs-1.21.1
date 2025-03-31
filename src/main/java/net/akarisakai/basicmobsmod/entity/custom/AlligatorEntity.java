@@ -95,8 +95,11 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     // Instance variables
     private Box cachedSearchBox;
+    private double lastTickY;
+    private float verticalDirection;
+    private float bodyPitch;
+    public int noVerticalMovementTicks;
     private boolean hasBredThisCycle = false;
-    private BlockPos homePos;
     private int ejectTimer = 0;
     private int baskingCooldown = 0;
     private int remountCooldown = 0;
@@ -308,28 +311,27 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
         if (event.isMoving()) {
             if (this.isTouchingWater()) {
-                controller.setAnimation(RawAnimation.begin().thenLoop("swim"));
                 controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() * ANIMATION_SPEED_FACTOR));
+                return event.setAndContinue(RawAnimation.begin().thenLoop("swim"));
             } else {
                 if (controller.getCurrentAnimation() != null &&
                         controller.getCurrentAnimation().animation().name().equals("basking")) {
-                    controller.setAnimation(RawAnimation.begin().thenPlay("basking").thenLoop("walk"));
+                    return event.setAndContinue(RawAnimation.begin().thenPlay("basking").thenLoop("walk"));
                 } else {
-                    controller.setAnimation(RawAnimation.begin().thenLoop("walk"));
+                    controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() *
+                            (this.isAttacking() ? ATTACK_ANIMATION_SPEED_FACTOR : ANIMATION_SPEED_FACTOR)));
+                    return event.setAndContinue(RawAnimation.begin().thenLoop("walk"));
                 }
-                controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() *
-                        (this.isAttacking() ? ATTACK_ANIMATION_SPEED_FACTOR : ANIMATION_SPEED_FACTOR)));
             }
         } else {
             if (this.isTouchingWater()) {
-                controller.setAnimation(RawAnimation.begin().thenLoop("swim.idle"));
+                return event.setAndContinue(RawAnimation.begin().thenLoop("swim.idle"));
             } else if (this.isBasking()) {
                 return PlayState.STOP;
             } else {
-                controller.setAnimation(RawAnimation.begin().thenLoop("alligator.idle"));
+                return event.setAndContinue(RawAnimation.begin().thenLoop("alligator.idle"));
             }
         }
-        return PlayState.CONTINUE;
     }
 
     private <T extends GeoEntity> PlayState chasePredicate(software.bernie.geckolib.animation.AnimationState<T> event) {
@@ -492,59 +494,82 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public void tick() {
         super.tick();
 
-        if (baskingCooldown > 0) {
-            baskingCooldown--;
-        }
-        if (this.age % 20 == 0) {
-            resetDailyHuntCount();
+        if (this.isTouchingWater()) {
+            updateBodyPitch();
+        } else {
+            bodyPitch = 0; // Reset when not in water
         }
 
-        if (age % 5 == 0) {
-            updateBlinking();
-        }
+        if (baskingCooldown > 0) baskingCooldown--;
+        if (age % 20 == 0) resetDailyHuntCount();
+        if (age % 5 == 0) updateBlinking();
 
         if (this.getWorld().isClient()) {
             setupAnimationStates();
         } else {
-            if (remountCooldown > 0) remountCooldown--;
-            if (ejectTimer > 0) ejectTimer--;
+            updateServerSideLogic();
+        }
+    }
 
-            if (this.hasPassengers() && this.getTarget() != null) {
-                ejectAllPassengers();
+    private void updateBodyPitch() {
+        double currentY = this.getY();
+        double yChange = currentY - lastTickY;
+
+        if (Math.abs(yChange) > 0.001) {
+            verticalDirection = (float) Math.signum(yChange);
+            noVerticalMovementTicks = 0;
+        } else {
+            noVerticalMovementTicks++;
+        }
+
+        float targetPitch = noVerticalMovementTicks < 5 ? verticalDirection * 0.2F : 0;
+        float lerpSpeed = noVerticalMovementTicks < 5 ? 0.3F : 0.1F;
+        bodyPitch = MathHelper.lerp(lerpSpeed, bodyPitch, targetPitch);
+
+        lastTickY = currentY;
+    }
+
+    private void updateServerSideLogic() {
+        if (remountCooldown > 0) remountCooldown--;
+        if (ejectTimer > 0) ejectTimer--;
+
+        if (this.hasPassengers() && this.getTarget() != null) {
+            ejectAllPassengers();
+        }
+
+        if (this.isTouchingWater()) {
+            if (remountCooldown == 0) {
+                tryMountParent();
             }
+            breakWaterPlants();
+        } else {
+            this.setNoGravity(false);
+            ejectBabiesOneByOne();
+        }
 
-            if (this.isTouchingWater()) {
-                if (remountCooldown == 0) {
-                    tryMountParent();
-                }
-            } else {
-                this.setNoGravity(false);
-                ejectBabiesOneByOne();
+        updateFeedingLogic();
+    }
+
+    private void updateFeedingLogic() {
+        if (feedingSoundDelay > 0 && --feedingSoundDelay == 0) {
+            this.getWorld().playSound(null, this.getX(), this.getY(), this.getZ(),
+                    SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.NEUTRAL, 1.2F, 1.0F);
+        }
+
+        if (feedingDelay > 0 && --feedingDelay == 0) {
+            if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
+                ((ServerWorld) this.getWorld()).spawnParticles(ParticleTypes.HEART,
+                        this.getX(), this.getY() + 1.0, this.getZ(), 3, 0.3, 0.3, 0.3, 0.1);
             }
-
-            if (feedingSoundDelay > 0 && --feedingSoundDelay == 0) {
-                this.getWorld().playSound(null, this.getX(), this.getY(), this.getZ(),
-                        SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.NEUTRAL, 1.2F, 1.0F);
-            }
-
-            if (this.isTouchingWater()) {
-                breakWaterPlants();
-            }
-
-            if (feedingDelay > 0 && --feedingDelay == 0) {
-                if (!this.getWorld().isClient) {
-                    if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
-                        ((ServerWorld) this.getWorld()).spawnParticles(ParticleTypes.HEART,
-                                this.getX(), this.getY() + 1.0, this.getZ(), 3, 0.3, 0.3, 0.3, 0.1);
-                    }
-                    if (!this.getHeldItem().isEmpty()) {
-                        this.setHeldItem(ItemStack.EMPTY);
-                    }
-                }
+            if (!this.getHeldItem().isEmpty()) {
+                this.setHeldItem(ItemStack.EMPTY);
             }
         }
     }
 
+    public float getBodyPitch() {
+        return bodyPitch;
+    }
 
     @Override
     public boolean damage(DamageSource source, float amount) {
@@ -713,16 +738,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
             this.getWorld().sendEntityStatus(this, (byte) 10);
         }
     }
-
-
-    public BlockPos getHomePos() {
-        return homePos;
-    }
-
-    public void setHomePos(BlockPos homePos) {
-        this.homePos = homePos;
-    }
-
     public int getBaskingCooldown() {
         return baskingCooldown;
     }

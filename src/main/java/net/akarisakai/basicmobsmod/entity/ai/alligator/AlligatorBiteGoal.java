@@ -11,7 +11,7 @@ public class AlligatorBiteGoal extends Goal {
     private LivingEntity target;
     private final TargetPredicate targetPredicate;
     private int delayCounter;
-    private static final int DELAY_TICKS = 8; // 0.4 seconds (20 ticks per second)
+    private static final int DELAY_TICKS = 8;
 
     public AlligatorBiteGoal(AlligatorEntity alligator, double range) {
         this.alligator = alligator;

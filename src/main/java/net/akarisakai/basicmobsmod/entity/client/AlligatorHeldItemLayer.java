@@ -13,7 +13,6 @@ import software.bernie.geckolib.renderer.layer.BlockAndItemGeoLayer;
 
 public class AlligatorHeldItemLayer extends BlockAndItemGeoLayer<AlligatorEntity> {
     public AlligatorHeldItemLayer(GeoRenderer<AlligatorEntity> renderer) {
-        // Provide empty BlockState function instead of null
         super(renderer,
                 (bone, alligator) -> alligator.getHeldItem(),
                 (bone, alligator) -> null // Safe null return for blocks

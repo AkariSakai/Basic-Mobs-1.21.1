@@ -102,7 +102,6 @@ public class AlligatorEggBlock extends Block {
             if (alligator != null) {
                 alligator.setBaby(true);
                 alligator.setBreedingAge(-24000);
-                alligator.setHomePos(pos);
                 alligator.refreshPositionAndAngles(
                         pos.getX() + 0.3 + i * 0.2,
                         pos.getY(),

@@ -3,6 +3,9 @@ package net.akarisakai.basicmobsmod.entity.ai.alligator;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.ai.control.MoveControl;
+import net.minecraft.entity.ai.pathing.EntityNavigation;
+import net.minecraft.entity.ai.pathing.PathNodeMaker;
+import net.minecraft.entity.ai.pathing.PathNodeType;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.registry.tag.BlockTags;
@@ -55,24 +58,23 @@ public class AlligatorMoveControl extends MoveControl {
             }
 
             // Calculate yaw (horizontal rotation)
-            float targetYaw = (float)(MathHelper.atan2(dz, dx) * (180F / Math.PI)) - 90.0F;
+            float targetYaw = (float) (MathHelper.atan2(dz, dx) * (180F / Math.PI)) - 90.0F;
             this.entity.setYaw(this.wrapDegrees(this.entity.getYaw(), targetYaw, this.yawChange));
             this.entity.bodyYaw = this.entity.getYaw();
             this.entity.headYaw = this.entity.getYaw();
 
             // Movement speed
-            float baseSpeed = (float)(this.speed * this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
+            float baseSpeed = (float) (this.speed * this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
             this.entity.setMovementSpeed(baseSpeed * this.speedInWater);
 
-            // Calculate pitch (vertical rotation) for swimming up/down
             if (Math.abs(dy) > 1.0E-5F) {
-                float targetPitch = -((float)(MathHelper.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * (180F / Math.PI)));
+                float targetPitch = -((float) (MathHelper.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * (180F / Math.PI)));
                 targetPitch = MathHelper.clamp(MathHelper.wrapDegrees(targetPitch), -this.pitchChange, this.pitchChange);
                 this.entity.setPitch(this.wrapDegrees(this.entity.getPitch(), targetPitch, MAX_PITCH_CHANGE));
             }
 
             // Apply movement
-            float pitchRad = this.entity.getPitch() * (float)(Math.PI / 180F);
+            float pitchRad = this.entity.getPitch() * (float) (Math.PI / 180F);
             this.entity.forwardSpeed = MathHelper.cos(pitchRad) * baseSpeed;
             this.entity.upwardSpeed = -MathHelper.sin(pitchRad) * baseSpeed;
         } else {
@@ -93,8 +95,8 @@ public class AlligatorMoveControl extends MoveControl {
     }
 
     private void handleStrafing() {
-        float movementSpeed = (float)this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED);
-        float adjustedSpeed = (float)this.speed * movementSpeed * this.speedOnLand;
+        float movementSpeed = (float) this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED);
+        float adjustedSpeed = (float) this.speed * movementSpeed * this.speedOnLand;
         float forward = this.forwardMovement;
         float sideways = this.sidewaysMovement;
         float magnitude = MathHelper.sqrt(forward * forward + sideways * sideways);
@@ -107,8 +109,8 @@ public class AlligatorMoveControl extends MoveControl {
         forward *= magnitude;
         sideways *= magnitude;
 
-        float sinYaw = MathHelper.sin(this.entity.getYaw() * (float)(Math.PI / 180F));
-        float cosYaw = MathHelper.cos(this.entity.getYaw() * (float)(Math.PI / 180F));
+        float sinYaw = MathHelper.sin(this.entity.getYaw() * (float) (Math.PI / 180F));
+        float cosYaw = MathHelper.cos(this.entity.getYaw() * (float) (Math.PI / 180F));
         float strafeX = forward * cosYaw - sideways * sinYaw;
         float strafeZ = sideways * cosYaw + forward * sinYaw;
 
@@ -135,10 +137,10 @@ public class AlligatorMoveControl extends MoveControl {
             return;
         }
 
-        float targetYaw = (float)(MathHelper.atan2(dz, dx) * (180F / Math.PI)) - 90.0F;
+        float targetYaw = (float) (MathHelper.atan2(dz, dx) * (180F / Math.PI)) - 90.0F;
         this.entity.setYaw(this.wrapDegrees(this.entity.getYaw(), targetYaw, MAX_YAW_CHANGE));
 
-        float baseSpeed = (float)(this.speed * this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
+        float baseSpeed = (float) (this.speed * this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
         this.entity.setMovementSpeed(baseSpeed * this.speedOnLand);
 
         // Handle obstacles and jumping
@@ -155,7 +157,7 @@ public class AlligatorMoveControl extends MoveControl {
     }
 
     private void handleJumping() {
-        this.entity.setMovementSpeed((float)(this.speed * this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED) * this.speedOnLand));
+        this.entity.setMovementSpeed((float) (this.speed * this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED) * this.speedOnLand));
         if (this.entity.isOnGround()) {
             this.state = State.WAIT;
         }
@@ -168,9 +170,13 @@ public class AlligatorMoveControl extends MoveControl {
         this.entity.setForwardSpeed(0.0F);
     }
 
-    private boolean isWalkablePosition(float xOffset, float zOffset) {
-        // Implementation from MoveControl
-        // Check if the position is walkable
-        return true; // Simplified - implement proper path node checking if needed
+    private boolean isWalkablePosition(float x, float z) {
+        EntityNavigation entityNavigation = this.entity.getNavigation();
+        if (entityNavigation != null) {
+            PathNodeMaker pathNodeMaker = entityNavigation.getNodeMaker();
+            return pathNodeMaker == null || pathNodeMaker.getDefaultNodeType(this.entity, BlockPos.ofFloored(this.entity.getX() + (double) x, this.entity.getBlockY(), this.entity.getZ() + (double) z)) == PathNodeType.WALKABLE;
+        }
+
+        return true;
     }
 }
