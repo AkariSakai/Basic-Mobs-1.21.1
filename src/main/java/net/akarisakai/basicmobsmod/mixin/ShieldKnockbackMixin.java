@@ -7,6 +7,8 @@ import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.Hand;
@@ -60,12 +62,16 @@ abstract class ShieldKnockbackMixin {
 
                         if (attacker instanceof PlayerEntity) {
                             attacker.takeKnockback(knockbackStrength, -knockbackVector.x, -knockbackVector.z);
+                            attacker.addVelocity(0, 0.3, 0);
+
+                            if (attacker instanceof ServerPlayerEntity serverPlayerAttacker) {
+                                serverPlayerAttacker.networkHandler.sendPacket(new EntityVelocityUpdateS2CPacket(serverPlayerAttacker));
+                            }
                         } else if (attacker.getAttributeInstance(net.minecraft.entity.attribute.EntityAttributes.GENERIC_KNOCKBACK_RESISTANCE) == null
                                 || attacker.getAttributeValue(net.minecraft.entity.attribute.EntityAttributes.GENERIC_KNOCKBACK_RESISTANCE) < 1.0) {
                             attacker.setVelocity(knockbackVector.multiply(knockbackStrength).add(0, 0.3, 0));
                             attacker.velocityDirty = true;
                         }
-
 
                         world.playSound(
                                 null,

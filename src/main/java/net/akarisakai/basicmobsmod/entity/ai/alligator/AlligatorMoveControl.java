@@ -1,6 +1,7 @@
 package net.akarisakai.basicmobsmod.entity.ai.alligator;
 
 
+import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.ai.control.MoveControl;
 import net.minecraft.entity.ai.pathing.EntityNavigation;
@@ -14,6 +15,7 @@ import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.shape.VoxelShape;
 
+
 public class AlligatorMoveControl extends MoveControl {
     private static final float MAX_PITCH_CHANGE = 5.0F;
     private static final float MAX_YAW_CHANGE = 90.0F;
@@ -22,6 +24,7 @@ public class AlligatorMoveControl extends MoveControl {
     private final float speedInWater;
     private final float speedOnLand;
     private final boolean buoyant;
+    private boolean wasPreviouslyInWater;
 
     public AlligatorMoveControl(MobEntity entity, int pitchChange, int yawChange, float speedInWater, float speedOnLand, boolean buoyant) {
         super(entity);
@@ -30,20 +33,53 @@ public class AlligatorMoveControl extends MoveControl {
         this.speedInWater = speedInWater;
         this.speedOnLand = speedOnLand;
         this.buoyant = buoyant;
+        this.wasPreviouslyInWater = entity.isTouchingWater();
     }
 
-    @Override
     public void tick() {
-        if (this.entity.isTouchingWater()) {
+        boolean isInWater = this.entity.isTouchingWater();
+
+        // Handle transition between water and land
+        if (isInWater && !wasPreviouslyInWater) {
+            // Just entered water - reset movement
+            stopMovement();
             handleWaterMovement();
-        } else {
+        } else if (!isInWater && wasPreviouslyInWater) {
+            // Just left water - reset movement
+            stopMovement();
             handleLandMovement();
+        } else {
+            // Continue with current movement mode
+            if (isInWater) {
+                handleWaterMovement();
+            } else {
+                handleLandMovement();
+            }
         }
+
+        wasPreviouslyInWater = isInWater;
     }
+
+
 
     private void handleWaterMovement() {
-        if (this.buoyant) {
-            this.entity.setVelocity(this.entity.getVelocity().add(0.0, 0.005, 0.0));
+        boolean targetIsOnLand = this.targetY > this.entity.getWorld().getSeaLevel() &&
+                !this.entity.getWorld().getBlockState(new BlockPos((int) this.targetX, (int) this.targetY, (int) this.targetZ)).isLiquid();
+
+        if (targetIsOnLand) {
+            // Adjust target to be at water surface near land
+            this.targetY = this.entity.getWorld().getSeaLevel() - 0.5;
+
+            // Optionally trigger land movement if we're close to shore
+            if (this.entity.getY() >= this.entity.getWorld().getSeaLevel() - 1.0) {
+                handleLandMovement();
+                return;
+            }
+        }
+        if (this.buoyant && !(entity instanceof AlligatorEntity && ((AlligatorEntity)entity).isResting())) {
+            if(this.entity.isSubmergedInWater()) {
+                this.entity.setVelocity(this.entity.getVelocity().add(0.0, 0.005, 0.0));
+            }
         }
 
         if (this.state == State.MOVE_TO && !this.entity.getNavigation().isIdle()) {
@@ -83,6 +119,15 @@ public class AlligatorMoveControl extends MoveControl {
     }
 
     private void handleLandMovement() {
+        boolean targetIsInWater = this.entity.getWorld().getBlockState(new BlockPos((int) this.targetX, (int) this.targetY, (int) this.targetZ)).isLiquid();
+
+        if (targetIsInWater) {
+            if (this.entity.isTouchingWater()) {
+                handleWaterMovement();
+                return;
+            }
+        }
+
         if (this.state == State.STRAFE) {
             handleStrafing();
         } else if (this.state == State.MOVE_TO) {

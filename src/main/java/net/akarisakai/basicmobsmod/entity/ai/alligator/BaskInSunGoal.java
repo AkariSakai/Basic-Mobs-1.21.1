@@ -31,7 +31,7 @@ public class BaskInSunGoal extends Goal {
         if (alligator.getBaskingCooldown() > 0) return false;
 
         if (alligator.isBaby() || alligator.getWorld().isNight() || alligator.getWorld().isRaining()) return false;
-        if (!alligator.isTouchingWater() || alligator.hasPassengers() || alligator.isAttacking() || alligator.getTarget() != null) return false;
+        if (!alligator.isTouchingWater() || alligator.hasPassengers() || alligator.isAttacking() || alligator.getTarget() != null || !alligator.isResting()) return false;
         if (chanceCooldown > 0) {
             chanceCooldown--;
             return false;

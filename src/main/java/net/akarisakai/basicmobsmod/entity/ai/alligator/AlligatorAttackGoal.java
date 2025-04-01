@@ -8,18 +8,24 @@ public class AlligatorAttackGoal extends MeleeAttackGoal {
     private int ticks;
     private final AlligatorEntity alligator;
 
-    public AlligatorAttackGoal(AlligatorEntity alligator,double speed, boolean pauseWhenMobIdle) {
+    public AlligatorAttackGoal(AlligatorEntity alligator, double speed, boolean pauseWhenMobIdle) {
         super(alligator, speed, pauseWhenMobIdle);
         this.alligator = alligator;
     }
 
     @Override
     public boolean canStart() {
+        if (alligator.getAir() < 300) {
+            return false;
+        }
         return super.canStart() && canAlligatorAttackTarget(alligator.getTarget());
     }
 
     @Override
     public boolean shouldContinue() {
+        if (alligator.getAir() < 100) {
+            return false;
+        }
         return super.shouldContinue() && canAlligatorAttackTarget(alligator.getTarget());
     }
 
@@ -48,5 +54,4 @@ public class AlligatorAttackGoal extends MeleeAttackGoal {
         this.ticks++;
         alligator.setAttacking(this.ticks >= 5 && this.getCooldown() < this.getMaxCooldown() / 2);
     }
-
 }

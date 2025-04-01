@@ -94,6 +94,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     );
 
     // Instance variables
+    private boolean isResting = false;
     private Box cachedSearchBox;
     private double lastTickY;
     private float verticalDirection;
@@ -116,7 +117,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     private int nextBlinkTime = 40 + random.nextInt(60);
 
 
-
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
         super(entityType, world);
         this.lookControl = this.createLookControl();
@@ -125,6 +125,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
 
     @Override
     protected void initGoals() {
+        this.goalSelector.add(0, new AlligatorSurfaceRestGoal(this, 30, 60));
         this.goalSelector.add(1, new FleeAtLowHealthGoal(this, 2, 10.0f));
         this.goalSelector.add(2, new AlligatorAttackGoal(this, 2, true)); // Main attack
         this.goalSelector.add(3, new RevengeGoal(this));
@@ -149,7 +150,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
                 .add(EntityAttributes.GENERIC_ATTACK_SPEED, 0.8)
                 .add(EntityAttributes.GENERIC_KNOCKBACK_RESISTANCE, 0.4)
                 .add(EntityAttributes.GENERIC_WATER_MOVEMENT_EFFICIENCY, 1.2)
-                .add(EntityAttributes.GENERIC_OXYGEN_BONUS, 20)
                 .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 20);
     }
 
@@ -440,11 +440,24 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     }
 
     @Override
+    public int getMaxAir() {
+        return 1500;
+    }
+
+    @Override
     protected void initDataTracker(DataTracker.Builder builder) {
         super.initDataTracker(builder);
         builder.add(BABY, false);
         builder.add(HELD_ITEM, ItemStack.EMPTY);
         builder.add(BASKING, false);
+    }
+
+    public boolean isResting() {
+        return isResting;
+    }
+
+    public void setResting(boolean resting) {
+        this.isResting = resting;
     }
 
     protected LookControl createLookControl() {
@@ -515,7 +528,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
         double currentY = this.getY();
         double yChange = currentY - lastTickY;
 
-        if (Math.abs(yChange) > 0.001) {
+        if (Math.abs(yChange) > 0.01) {
             verticalDirection = (float) Math.signum(yChange);
             noVerticalMovementTicks = 0;
         } else {
@@ -744,5 +757,4 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity {
     public void setBaskingCooldown(int cooldown) {
         this.baskingCooldown = cooldown;
     }
-
 }
