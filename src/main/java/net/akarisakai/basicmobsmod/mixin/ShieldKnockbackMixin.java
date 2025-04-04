@@ -62,7 +62,7 @@ abstract class ShieldKnockbackMixin {
 
                         if (attacker instanceof PlayerEntity) {
                             attacker.takeKnockback(knockbackStrength, -knockbackVector.x, -knockbackVector.z);
-                            attacker.addVelocity(0, 0.3, 0);
+                            attacker.addVelocity(0, 0, 0);
 
                             if (attacker instanceof ServerPlayerEntity serverPlayerAttacker) {
                                 serverPlayerAttacker.networkHandler.sendPacket(new EntityVelocityUpdateS2CPacket(serverPlayerAttacker));

@@ -19,6 +19,7 @@ public class ModItemGroups {
                         entries.add(ModItems.COOKED_ALLIGATOR_MEAT);
                         entries.add(ModItems.ALLIGATOR_SCUTE);
                         entries.add(ModItems.SCUTE_REINFORCED_SHIELD);
+                        entries.add(ModItems.BUCKET_OF_BABY_ALLIGATOR);
                         entries.add(ModSpawnEggs.ALLIGATOR_SPAWN_EGG);
                     }).build());
 

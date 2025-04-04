@@ -23,23 +23,26 @@ public class AlligatorSurfaceRestGoal extends Goal {
     private int restDuration;
     private double surfaceYLevel;
 
+    private static final double MAX_RISE_SPEED = 0.08;
+    private static final double MIN_RISE_SPEED = 0.02;
+    private static final double DEPTH_THRESHOLD = 8.0;
+    private static final double SURFACE_SLOW_RANGE = 4.0;
+
     public AlligatorSurfaceRestGoal(MobEntity mob, int minRestSeconds, int maxRestSeconds) {
         this.mob = mob;
-        this.minRestDuration = minRestSeconds * 20; // Convert seconds to ticks
+        this.minRestDuration = minRestSeconds * 20;
         this.maxRestDuration = maxRestSeconds * 20;
-        // Only control JUMP to prevent blocking movement goals
         this.setControls(EnumSet.of(Control.JUMP));
     }
 
+
     @Override
     public boolean canStart() {
-        // Start when air is getting low or already resting
         return isResting || this.mob.getAir() < 140;
     }
 
     @Override
     public boolean shouldContinue() {
-        // Continue if still resting or if air is still low
         return isResting || this.mob.getAir() < 180;
     }
 
@@ -49,7 +52,6 @@ public class AlligatorSurfaceRestGoal extends Goal {
             moveToSurface();
             isResting = false;
             restTicks = 0;
-            // Random duration between min and max
             restDuration = minRestDuration + this.mob.getRandom().nextInt(maxRestDuration - minRestDuration + 1);
             if (mob instanceof AlligatorEntity) {
                 ((AlligatorEntity) mob).setResting(false);
@@ -75,8 +77,10 @@ public class AlligatorSurfaceRestGoal extends Goal {
         }
 
         if (this.mob.isSubmergedInWater()) {
-            // If still underwater, keep moving up
-            this.mob.updateVelocity(0.02F, new Vec3d(0, 1.0, 0));
+
+            double riseSpeed = calculateRiseSpeedByDepth();
+
+            this.mob.updateVelocity((float)riseSpeed, new Vec3d(0, 1.0, 0));
             this.mob.move(MovementType.SELF, this.mob.getVelocity());
         } else if (!isResting) {
             isResting = true;
@@ -91,7 +95,6 @@ public class AlligatorSurfaceRestGoal extends Goal {
 
             maintainSurfaceLevel();
 
-            // Check for targets that would interrupt resting
             if (this.mob.getTarget() != null && this.mob.getTarget().isAlive() &&
                     this.mob.distanceTo(this.mob.getTarget()) < 8.0) {
                 stop();
@@ -104,15 +107,31 @@ public class AlligatorSurfaceRestGoal extends Goal {
         }
     }
 
+    private double calculateRiseSpeedByDepth() {
+        if (surfacePos == null) {
+            return MIN_RISE_SPEED;
+        }
+
+        double distanceToSurface = surfacePos.getY() - this.mob.getY();
+
+        if (distanceToSurface <= 0) {
+            return MIN_RISE_SPEED;
+        } else if (distanceToSurface <= SURFACE_SLOW_RANGE) {
+            return MIN_RISE_SPEED + (MAX_RISE_SPEED - MIN_RISE_SPEED) *
+                    (distanceToSurface / SURFACE_SLOW_RANGE) * 0.5;
+        } else {
+            double depthFactor = Math.min(distanceToSurface / DEPTH_THRESHOLD, 1.0);
+            return MIN_RISE_SPEED + (MAX_RISE_SPEED - MIN_RISE_SPEED) * depthFactor;
+        }
+    }
+
     private void maintainSurfaceLevel() {
         Vec3d currentVelocity = this.mob.getVelocity();
 
-        double adjustedSurfaceYLevel = surfaceYLevel + 0.25;
+        double adjustedSurfaceYLevel = surfaceYLevel + 0.20;
 
         if (Math.abs(this.mob.getY() - adjustedSurfaceYLevel) > 0.1) {
-
             double yAdjustment = (adjustedSurfaceYLevel - this.mob.getY()) * 0.1;
-
             this.mob.setVelocity(currentVelocity.x, yAdjustment, currentVelocity.z);
         } else {
             if (currentVelocity.y < -0.03) {
@@ -122,12 +141,14 @@ public class AlligatorSurfaceRestGoal extends Goal {
     }
 
     private void moveToSurface() {
+        double scanHeight = Math.min(12.0, Math.max(8.0, this.mob.getY() - this.getWaterDepth() + 4.0));
+
         Iterable<BlockPos> iterable = BlockPos.iterate(
                 MathHelper.floor(this.mob.getX() - 1.0),
                 this.mob.getBlockY(),
                 MathHelper.floor(this.mob.getZ() - 1.0),
                 MathHelper.floor(this.mob.getX() + 1.0),
-                MathHelper.floor(this.mob.getY() + 8.0),
+                MathHelper.floor(this.mob.getY() + scanHeight),
                 MathHelper.floor(this.mob.getZ() + 1.0)
         );
 
@@ -140,15 +161,33 @@ public class AlligatorSurfaceRestGoal extends Goal {
         }
 
         if (surfacePos == null) {
-            surfacePos = BlockPos.ofFloored(this.mob.getX(), this.mob.getY() + 8.0, this.mob.getZ());
+            surfacePos = BlockPos.ofFloored(this.mob.getX(), this.mob.getY() + scanHeight, this.mob.getZ());
         }
+
+        float navSpeed = 1.0F + (float)Math.min(0.5, getWaterDepth() / DEPTH_THRESHOLD * 0.5);
 
         this.mob.getNavigation().startMovingTo(
                 surfacePos.getX(),
                 surfacePos.getY() + 0.5,
                 surfacePos.getZ(),
-                1.0F
+                navSpeed
         );
+    }
+
+    private double getWaterDepth() {
+        BlockPos entityPos = this.mob.getBlockPos();
+        int depth = 0;
+
+        for (int y = 0; y < 16; y++) {
+            BlockPos checkPos = entityPos.down(y);
+            if (!this.mob.getWorld().getFluidState(checkPos).isEmpty()) {
+                depth = y;
+            } else {
+                break;
+            }
+        }
+
+        return depth;
     }
 
     private boolean isAirAboveWater(WorldView world, BlockPos pos) {

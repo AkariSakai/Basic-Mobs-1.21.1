@@ -39,17 +39,13 @@ public class AlligatorMoveControl extends MoveControl {
     public void tick() {
         boolean isInWater = this.entity.isTouchingWater();
 
-        // Handle transition between water and land
         if (isInWater && !wasPreviouslyInWater) {
-            // Just entered water - reset movement
             stopMovement();
             handleWaterMovement();
         } else if (!isInWater && wasPreviouslyInWater) {
-            // Just left water - reset movement
             stopMovement();
             handleLandMovement();
         } else {
-            // Continue with current movement mode
             if (isInWater) {
                 handleWaterMovement();
             } else {
@@ -67,10 +63,8 @@ public class AlligatorMoveControl extends MoveControl {
                 !this.entity.getWorld().getBlockState(new BlockPos((int) this.targetX, (int) this.targetY, (int) this.targetZ)).isLiquid();
 
         if (targetIsOnLand) {
-            // Adjust target to be at water surface near land
             this.targetY = this.entity.getWorld().getSeaLevel() - 0.5;
 
-            // Optionally trigger land movement if we're close to shore
             if (this.entity.getY() >= this.entity.getWorld().getSeaLevel() - 1.0) {
                 handleLandMovement();
                 return;
@@ -93,13 +87,11 @@ public class AlligatorMoveControl extends MoveControl {
                 return;
             }
 
-            // Calculate yaw (horizontal rotation)
             float targetYaw = (float) (MathHelper.atan2(dz, dx) * (180F / Math.PI)) - 90.0F;
             this.entity.setYaw(this.wrapDegrees(this.entity.getYaw(), targetYaw, this.yawChange));
             this.entity.bodyYaw = this.entity.getYaw();
             this.entity.headYaw = this.entity.getYaw();
 
-            // Movement speed
             float baseSpeed = (float) (this.speed * this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
             this.entity.setMovementSpeed(baseSpeed * this.speedInWater);
 
@@ -109,7 +101,6 @@ public class AlligatorMoveControl extends MoveControl {
                 this.entity.setPitch(this.wrapDegrees(this.entity.getPitch(), targetPitch, MAX_PITCH_CHANGE));
             }
 
-            // Apply movement
             float pitchRad = this.entity.getPitch() * (float) (Math.PI / 180F);
             this.entity.forwardSpeed = MathHelper.cos(pitchRad) * baseSpeed;
             this.entity.upwardSpeed = -MathHelper.sin(pitchRad) * baseSpeed;
@@ -188,7 +179,6 @@ public class AlligatorMoveControl extends MoveControl {
         float baseSpeed = (float) (this.speed * this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED));
         this.entity.setMovementSpeed(baseSpeed * this.speedOnLand);
 
-        // Handle obstacles and jumping
         BlockPos pos = this.entity.getBlockPos();
         BlockState state = this.entity.getWorld().getBlockState(pos);
         VoxelShape shape = state.getCollisionShape(this.entity.getWorld(), pos);

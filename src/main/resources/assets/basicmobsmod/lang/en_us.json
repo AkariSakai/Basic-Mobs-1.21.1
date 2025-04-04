@@ -11,5 +11,6 @@
   "tooltip.basicmobsmod.scute_shield.special_properties": "Features:",
   "tooltip.basicmobsmod.scute_shield.pushback": "Repel foes with a forceful block",
   "tooltip.basicmobsmod.scute_shield.reduced_cooldown": "Reduced shield disable time",
-  "tooltip.basicmobsmod.scute_shield.repair": "Repairable with Alligator Scute"
+  "tooltip.basicmobsmod.scute_shield.repair": "Repairable with Alligator Scute",
+  "item.basicmobsmod.bucket_of_baby_alligator": "Bucket of Baby Alligator"
 }

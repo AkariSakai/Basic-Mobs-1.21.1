@@ -5,6 +5,7 @@ import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
 import net.akarisakai.basicmobsmod.item.ModItemGroups;
 import net.akarisakai.basicmobsmod.item.ModItems;
 import net.akarisakai.basicmobsmod.item.ModSpawnEggs;
+import net.akarisakai.basicmobsmod.world.gen.ModEntitySpawns;
 import net.fabricmc.api.ModInitializer;
 
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
@@ -22,5 +23,6 @@ public class BasicMobsMod implements ModInitializer {
 		ModSpawnEggs.registerModItems();
 		ModItemGroups.registerItemGroups();
 		ModItems.registerModItems();
+		ModEntitySpawns.addSpawns();
 	}
 }
