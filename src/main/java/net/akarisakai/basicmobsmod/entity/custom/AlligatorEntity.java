@@ -54,7 +54,6 @@ import java.util.Set;
 
 public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketable {
 
-    // --- Constants ---
     private static final int MAX_DAILY_HUNTS = 5;
     private static final int FEEDING_SOUND_DELAY = 17;
     private static final int FEEDING_PARTICLE_DELAY = 25;
@@ -81,15 +80,12 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketab
     private static final String NBT_IS_BABY = "IsBaby";
     private static final String NBT_HAS_BRED = "HasBredThisCycle";
 
-    // Entity Tracking
     private static final TrackedData<ItemStack> HELD_ITEM = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.ITEM_STACK);
     private static final Set<Class<?>> EXCLUDED_HUNT_ENTITIES = Set.of(
             VillagerEntity.class, WanderingTraderEntity.class, SkeletonHorseEntity.class,
             SnowGolemEntity.class, AllayEntity.class, BatEntity.class, ParrotEntity.class,
             StriderEntity.class, PufferfishEntity.class, AlligatorEntity.class, BeeEntity.class
     );
-
-    // Instance variables
     private boolean isResting = false;
     private double lastTickY;
     private float verticalDirection;
@@ -109,7 +105,6 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketab
     private int blinkTimer = 0;
     private int nextBlinkTime = 40 + random.nextInt(60);
 
-
     public AlligatorEntity(EntityType<? extends AnimalEntity> entityType, World world) {
         super(entityType, world);
         this.lookControl = this.createLookControl();
@@ -120,7 +115,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketab
     protected void initGoals() {
         this.goalSelector.add(4, new AlligatorSurfaceRestGoal(this, 30, 60));
         this.goalSelector.add(1, new FleeAtLowHealthGoal(this, 2, 10.0f));
-        this.goalSelector.add(2, new AlligatorAttackGoal(this, 2, true)); // Main attack
+        this.goalSelector.add(2, new AlligatorAttackGoal(this, 2, true));
         this.goalSelector.add(3, new AlligatorRevengeGoal(this));
         this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
         this.goalSelector.add(5, new BaskInSunGoal(this));
