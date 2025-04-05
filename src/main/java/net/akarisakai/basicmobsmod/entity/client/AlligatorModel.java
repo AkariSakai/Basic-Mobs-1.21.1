@@ -30,7 +30,7 @@ public class AlligatorModel extends GeoModel<AlligatorEntity> {
     @Override
     public void setCustomAnimations(AlligatorEntity alligatorEntity, long instanceId, AnimationState<AlligatorEntity> animationState) {
         resetBones();
-        GeoBone tiltHelper = getAnimationProcessor().getBone("tiltHelper"); // New helper bone
+        GeoBone tiltHelper = getAnimationProcessor().getBone("tiltHelper");
         GeoBone head = getAnimationProcessor().getBone("head");
 
         if (tiltHelper != null) {

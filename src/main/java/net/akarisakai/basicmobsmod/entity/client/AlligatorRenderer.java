@@ -14,7 +14,7 @@ public class AlligatorRenderer extends GeoEntityRenderer<AlligatorEntity> {
         super(renderManager, new AlligatorModel());
         this.shadowRadius = 0.7F;
         this.addRenderLayer(new AlligatorHeldItemLayer(this));
-        this.addRenderLayer(new AutoGlowingGeoLayer<>(this)); // Add glowing layer
+        this.addRenderLayer(new AutoGlowingGeoLayer<>(this));
     }
 
     @Override

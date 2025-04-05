@@ -15,13 +15,13 @@ public class AlligatorHeldItemLayer extends BlockAndItemGeoLayer<AlligatorEntity
     public AlligatorHeldItemLayer(GeoRenderer<AlligatorEntity> renderer) {
         super(renderer,
                 (bone, alligator) -> alligator.getHeldItem(),
-                (bone, alligator) -> null // Safe null return for blocks
+                (bone, alligator) -> null
         );
     }
 
     @Override
     protected ModelTransformationMode getTransformTypeForStack(GeoBone bone, ItemStack stack, AlligatorEntity animatable) {
-        return ModelTransformationMode.GROUND; // Better for held items
+        return ModelTransformationMode.GROUND;
     }
 
     @Override
@@ -35,7 +35,6 @@ public class AlligatorHeldItemLayer extends BlockAndItemGeoLayer<AlligatorEntity
 
             poseStack.scale(0.85f, 0.85f, 0.85f);
 
-            // Render with corrected transform type
             MinecraftClient.getInstance().getItemRenderer().renderItem(
                     animatable,
                     stack,
