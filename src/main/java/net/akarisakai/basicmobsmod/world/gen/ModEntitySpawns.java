@@ -20,7 +20,7 @@ public class ModEntitySpawns {
                 ModEntities.ALLIGATOR,
                 40,
                 1,
-                1
+                2
         );
 
         SpawnRestriction.register(
