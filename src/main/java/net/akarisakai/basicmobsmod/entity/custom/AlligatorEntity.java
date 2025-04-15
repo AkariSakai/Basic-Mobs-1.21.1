@@ -3,13 +3,12 @@ package net.akarisakai.basicmobsmod.entity.custom;
 import net.akarisakai.basicmobsmod.entity.ModEntities;
 import net.akarisakai.basicmobsmod.entity.ai.alligator.*;
 import net.akarisakai.basicmobsmod.item.ModItems;
+import net.akarisakai.basicmobsmod.util.ModTags;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.entity.*;
 import net.minecraft.entity.AnimationState;
-import net.minecraft.entity.Bucketable;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.control.LookControl;
 import net.minecraft.entity.ai.control.MoveControl;
 import net.minecraft.entity.ai.goal.*;
@@ -28,6 +27,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.recipe.Ingredient;
 import net.minecraft.registry.tag.ItemTags;
@@ -42,8 +42,11 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldAccess;
+import net.minecraft.world.WorldView;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
@@ -56,12 +59,11 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketab
 
     private static final int MAX_DAILY_HUNTS = 5;
     private static final int FEEDING_SOUND_DELAY = 17;
+
     private static final int FEEDING_PARTICLE_DELAY = 25;
     private static final int FEEDING_COOLDOWN_TICKS = 30;
     private static final float HEAL_AMOUNT_FROM_FEEDING = 5.0F;
     private static final int IDLE_ANIMATION_TIMEOUT = 40;
-    private static final double ANIMATION_SPEED_FACTOR = 10.0;
-    private static final double ATTACK_ANIMATION_SPEED_FACTOR = 100.0;
     private static final double CHASE_ANIMATION_SPEED = 1.5;
     private static final TrackedData<Boolean> FROM_BUCKET = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private static final TrackedData<Boolean> BABY = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
@@ -79,7 +81,7 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketab
     private static final String NBT_LAST_HUNT_DAY = "LastHuntDay";
     private static final String NBT_IS_BABY = "IsBaby";
     private static final String NBT_HAS_BRED = "HasBredThisCycle";
-
+    private static final TrackedData<Boolean> IS_PANICKING = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private static final TrackedData<ItemStack> HELD_ITEM = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.ITEM_STACK);
     private static final Set<Class<?>> EXCLUDED_HUNT_ENTITIES = Set.of(
             VillagerEntity.class, WanderingTraderEntity.class, SkeletonHorseEntity.class,
@@ -205,11 +207,11 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketab
                 85,  10,  1.0f, 1.0f, true);
     }
 
+
     private void updateBlinking() {
         if (blinkTimer > 0) {
             blinkTimer--;
         } else {
-            // Trigger blink and reset timer
             triggerAnim("blinkController", "blink");
             blinkTimer = nextBlinkTime;
             nextBlinkTime = 40 + random.nextInt(60);
@@ -260,24 +262,24 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketab
 
     private <T extends GeoEntity> PlayState movementIdlePredicate(software.bernie.geckolib.animation.AnimationState<T> event) {
         AnimationController<?> controller = event.getController();
-
         boolean isOnMud = this.getBlockStateAtPos().getBlock() == Blocks.MUD;
+        boolean isMovingFast = this.getVelocity().lengthSquared() > 0.02;
+        double currentSpeed = controller.getAnimationSpeed();
+        double targetSpeed = isMovingFast && (this.isAttacking() || this.isPanicking())
+                ? 3.0 + (this.getVelocity().lengthSquared() * 8.0)
+                : 1.0;
+        double smoothedSpeed = MathHelper.lerp(0.1, currentSpeed, targetSpeed);
+        controller.setAnimationSpeed(smoothedSpeed);
 
         if (event.isMoving()) {
-            if (this.isTouchingWater()&& !isOnMud) {
-                controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() * ANIMATION_SPEED_FACTOR));
+            if (this.isTouchingWater() && !isOnMud) {
                 return event.setAndContinue(RawAnimation.begin().thenLoop("swim"));
             } else if (isOnMud) {
-                controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() *
-                        (this.isAttacking() ? ATTACK_ANIMATION_SPEED_FACTOR : ANIMATION_SPEED_FACTOR)));
                 return event.setAndContinue(RawAnimation.begin().thenLoop("mud.crawl"));
             } else {
-                if (controller.getCurrentAnimation() != null &&
-                        controller.getCurrentAnimation().animation().name().equals("basking")) {
+                if (controller.getCurrentAnimation() != null && controller.getCurrentAnimation().animation().name().equals("basking")) {
                     return event.setAndContinue(RawAnimation.begin().thenPlay("basking").thenLoop("walk"));
                 } else {
-                    controller.setAnimationSpeed(1.0 + (this.getVelocity().lengthSquared() *
-                            (this.isAttacking() ? ATTACK_ANIMATION_SPEED_FACTOR : ANIMATION_SPEED_FACTOR)));
                     return event.setAndContinue(RawAnimation.begin().thenLoop("walk"));
                 }
             }
@@ -372,7 +374,16 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketab
         builder.add(BABY, false);
         builder.add(HELD_ITEM, ItemStack.EMPTY);
         builder.add(BASKING, false);
+        builder.add(IS_PANICKING, false);
         builder.add(FROM_BUCKET, false);
+    }
+
+    public boolean isPanicking() {
+        return this.dataTracker.get(IS_PANICKING);
+    }
+
+    public void setPanicking(boolean panicking) {
+        this.dataTracker.set(IS_PANICKING, panicking);
     }
 
     public boolean isResting() {
@@ -517,7 +528,8 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketab
 
         if (feedingDelay > 0 && --feedingDelay == 0) {
             if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
-                ((ServerWorld) this.getWorld()).spawnParticles(ParticleTypes.HEART,
+                ParticleEffect particle = this.isBaby() ? ParticleTypes.HAPPY_VILLAGER : ParticleTypes.HEART;
+                ((ServerWorld) this.getWorld()).spawnParticles(particle,
                         this.getX(), this.getY() + 1.0, this.getZ(), 3, 0.3, 0.3, 0.3, 0.1);
             }
             if (!this.getHeldItem().isEmpty()) {
@@ -550,7 +562,8 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketab
                 this.heal(HEAL_AMOUNT_FROM_FEEDING);
             }
             if (this.dailyHuntCount >= MAX_DAILY_HUNTS) {
-                world.spawnParticles(ParticleTypes.HEART, this.getX(), this.getY() + 1.0, this.getZ(),
+                ParticleEffect particle = this.isBaby() ? ParticleTypes.HAPPY_VILLAGER : ParticleTypes.HEART;
+                world.spawnParticles(particle, this.getX(), this.getY() + 1.0, this.getZ(),
                         5, 0.5, 0.5, 0.5, 0.0);
             }
         }
@@ -613,6 +626,14 @@ public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketab
         } else {
             return 5 + this.random.nextInt(7);
         }
+    }
+
+    public static boolean canSpawn(EntityType<? extends AlligatorEntity> type, WorldAccess world, SpawnReason spawnReason, BlockPos pos, Random random) {
+        return random.nextInt(20) == 0 && world.getBlockState(pos.down()).isIn(ModTags.Blocks.ALLIGATORS_SPAWNABLE_ON);
+    }
+
+    public boolean canSpawn(WorldView world) {
+        return world.doesNotIntersectEntities(this);
     }
 
     @Nullable

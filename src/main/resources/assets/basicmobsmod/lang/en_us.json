@@ -2,10 +2,11 @@
   "entity.basicmobsmod.alligator": "Alligator",
 
   "item.basicmobsmod.spawn_egg.alligator_spawn_egg": "Alligator Spawn Egg",
+  "item.basicmobsmod.spawn_egg.tortoise_spawn_egg": "Tortoise Spawn Egg",
 
   "itemgroup.basicmobsmod.basic_mobs_item": "Basic Mobs",
   "item.basicmobsmod.cooked_alligator_meat": "Cooked Alligator Meat",
-  "item.basicmobsmod.scute_reinforced_shield": "Scute Reinforced Shield",
+  "item.basicmobsmod.scute_reinforced_shield": "§aScute Reinforced Shield",
   "item.basicmobsmod.raw_alligator_meat": "Raw Alligator Meat",
   "item.basicmobsmod.alligator_scute": "Alligator Scute",
   "tooltip.basicmobsmod.scute_shield.special_properties": "Features:",

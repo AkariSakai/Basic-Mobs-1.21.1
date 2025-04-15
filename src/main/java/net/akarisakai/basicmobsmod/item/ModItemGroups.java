@@ -21,6 +21,7 @@ public class ModItemGroups {
                         entries.add(ModItems.SCUTE_REINFORCED_SHIELD);
                         entries.add(ModItems.BUCKET_OF_BABY_ALLIGATOR);
                         entries.add(ModSpawnEggs.ALLIGATOR_SPAWN_EGG);
+                        entries.add(ModSpawnEggs.TORTOISE_SPAWN_EGG);
                     }).build());
 
 

@@ -11,7 +11,9 @@ import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
 
 public class ModSpawnEggs {
-    public static final Item ALLIGATOR_SPAWN_EGG = registerSpawnEgg("spawn_egg/alligator_spawn_egg", new SpawnEggItem(ModEntities.ALLIGATOR,3162151, 9606514,  new Item.Settings()));
+    public static final Item ALLIGATOR_SPAWN_EGG = registerSpawnEgg("spawn_egg/alligator_spawn_egg", new SpawnEggItem(ModEntities.ALLIGATOR, 3162151, 9606514, new Item.Settings()));
+    public static final Item TORTOISE_SPAWN_EGG = registerSpawnEgg("spawn_egg/tortoise_spawn_egg", new SpawnEggItem(ModEntities.TORTOISE, 9394765, 2171419, new Item.Settings()));
+
     private static Item registerSpawnEgg(String name, Item item) {
         return Registry.register(Registries.ITEM, Identifier.of(BasicMobsMod.MOD_ID, name), item);
     }
@@ -21,6 +23,7 @@ public class ModSpawnEggs {
 
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.SPAWN_EGGS).register(entries -> {
             entries.add(ModSpawnEggs.ALLIGATOR_SPAWN_EGG);
+            entries.add(ModSpawnEggs.TORTOISE_SPAWN_EGG);
         });
     }
 }
