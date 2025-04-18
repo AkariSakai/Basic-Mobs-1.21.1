@@ -1,8 +1,10 @@
 {
   "entity.basicmobsmod.alligator": "Alligator",
+  "entity.basicmobsmod.tortoise": "Tortoise",
 
   "item.basicmobsmod.spawn_egg.alligator_spawn_egg": "Alligator Spawn Egg",
   "item.basicmobsmod.spawn_egg.tortoise_spawn_egg": "Tortoise Spawn Egg",
+  "block.basicmobsmod.tortoise_egg": "Tortoise Egg",
 
   "itemgroup.basicmobsmod.basic_mobs_item": "Basic Mobs",
   "item.basicmobsmod.cooked_alligator_meat": "Cooked Alligator Meat",

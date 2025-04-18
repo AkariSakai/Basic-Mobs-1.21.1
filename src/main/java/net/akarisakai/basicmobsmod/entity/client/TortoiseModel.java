@@ -14,17 +14,23 @@ public class TortoiseModel extends GeoModel<TortoiseEntity> {
 
     @Override
     public Identifier getModelResource(TortoiseEntity tortoiseEntity) {
-        return Identifier.of(BasicMobsMod.MOD_ID, "geo/tortoise.geo.json");
+        return tortoiseEntity.isBaby()
+                ? Identifier.of(BasicMobsMod.MOD_ID, "geo/tortoise_baby.geo.json")
+                : Identifier.of(BasicMobsMod.MOD_ID, "geo/tortoise.geo.json");
     }
 
     @Override
     public Identifier getTextureResource(TortoiseEntity tortoiseEntity) {
-        return Identifier.of(BasicMobsMod.MOD_ID, "textures/entity/tortoise.png");
+        return tortoiseEntity.isBaby()
+                ? Identifier.of(BasicMobsMod.MOD_ID, "textures/entity/tortoise_baby.png")
+                : Identifier.of(BasicMobsMod.MOD_ID, "textures/entity/tortoise.png");
     }
 
     @Override
     public Identifier getAnimationResource(TortoiseEntity tortoiseEntity) {
-        return Identifier.of(BasicMobsMod.MOD_ID, "animations/tortoise.animation.json");
+        return tortoiseEntity.isBaby()
+                ? Identifier.of(BasicMobsMod.MOD_ID, "animations/tortoise_baby.animation.json")
+                : Identifier.of(BasicMobsMod.MOD_ID, "animations/tortoise.animation.json");
     }
 
     @Override
@@ -40,7 +46,6 @@ public class TortoiseModel extends GeoModel<TortoiseEntity> {
                     60.0F
             );
             head.setRotY(clampedYaw * MathHelper.RADIANS_PER_DEGREE);
-
         }
     }
 }

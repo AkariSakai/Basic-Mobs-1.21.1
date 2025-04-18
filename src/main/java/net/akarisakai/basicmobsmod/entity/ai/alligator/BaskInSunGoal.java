@@ -11,12 +11,8 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-import java.util.logging.Logger;
 
 public class BaskInSunGoal extends Goal {
-    private static final Logger LOGGER = Logger.getLogger("BasicMobsMod");
-    private static final boolean DEBUG = false;
-
     private final AlligatorEntity alligator;
     private int baskingTime;
     private boolean isBasking;
@@ -56,11 +52,6 @@ public class BaskInSunGoal extends Goal {
             return false;
         }
         this.baskingSpot = findBaskingSpot();
-
-        if (DEBUG && baskingSpot != null) {
-            LOGGER.info("BaskInSunGoal: Goal started, moving to basking spot at " + baskingSpot);
-        }
-
         return baskingSpot != null;
     }
 
@@ -201,9 +192,6 @@ public class BaskInSunGoal extends Goal {
         );
 
         if (!pathResult) {
-            if (DEBUG) {
-                LOGGER.warning("BaskInSunGoal: Failed to create path to basking spot");
-            }
             stop();
             return;
         }
@@ -269,9 +257,6 @@ public class BaskInSunGoal extends Goal {
                 );
 
                 if (!pathResult) {
-                    if (DEBUG) {
-                        LOGGER.warning("BaskInSunGoal: Failed to recreate path to basking spot");
-                    }
                     stop();
                     return;
                 }
@@ -293,9 +278,6 @@ public class BaskInSunGoal extends Goal {
             if (!alligator.isTouchingWater() &&
                     alligator.getWorld().getBlockState(alligator.getBlockPos().down()).isSolidBlock(alligator.getWorld(), alligator.getBlockPos().down())) {
                 if (!isBasking) {
-                    if (DEBUG) {
-                        LOGGER.info("BaskInSunGoal: Alligator reached basking spot, starting to bask");
-                    }
                     alligator.setBasking(true);
                     isBasking = true;
                     baskingTime = 0;
@@ -315,9 +297,6 @@ public class BaskInSunGoal extends Goal {
         }
 
         if (isBasking && baskingTime > MAX_BASKING_TIME) {
-            if (DEBUG) {
-                LOGGER.info("BaskInSunGoal: Maximum basking time reached");
-            }
             stop();
         }
     }
@@ -328,9 +307,6 @@ public class BaskInSunGoal extends Goal {
             alligator.setBasking(false);
             isBasking = false;
             alligator.removeStatusEffect(StatusEffects.REGENERATION);
-            if (DEBUG) {
-                LOGGER.info("BaskInSunGoal: Stopped basking");
-            }
         }
         baskingSpot = null;
         alligator.setBaskingCooldown(COOLDOWN_TICKS);

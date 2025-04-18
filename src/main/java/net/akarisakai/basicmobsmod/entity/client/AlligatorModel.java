@@ -40,7 +40,12 @@ public class AlligatorModel extends GeoModel<AlligatorEntity> {
         if (head != null) {
             EntityModelData entityData = animationState.getData(DataTickets.ENTITY_MODEL_DATA);
             head.setRotX((entityData.headPitch() * MathHelper.RADIANS_PER_DEGREE) - (tiltHelper != null ? tiltHelper.getRotX() : 0));
-            head.setRotY(entityData.netHeadYaw() * MathHelper.RADIANS_PER_DEGREE);
+            float clampedYaw = MathHelper.clamp(
+                    entityData.netHeadYaw(),
+                    -60.0F,
+                    60.0F
+            );
+            head.setRotY(clampedYaw * MathHelper.RADIANS_PER_DEGREE);
 
             if (alligatorEntity instanceof AlligatorEntity alligator) {
                 float headScale = alligator.isBaby() ? 1.5F : 1.0F;

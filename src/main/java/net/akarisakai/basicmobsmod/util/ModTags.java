@@ -11,6 +11,7 @@ public class ModTags {
 
     public static class Items {
         public static final TagKey<Item> TRANSFORMABLE_ITEMS = createTag("transformable_items");
+        public static final TagKey<Item> TORTOISE_TEMPT_ITEMS = createTag("tortoise_tempt_items");
 
         private static TagKey<Item> createTag(String name) {
             return TagKey.of(RegistryKeys.ITEM, Identifier.of(BasicMobsMod.MOD_ID, name));
@@ -19,6 +20,7 @@ public class ModTags {
 
     public static class Blocks {
         public static final TagKey<Block> ALLIGATORS_SPAWNABLE_ON = createTag("alligators_spawnable_on");
+        public static final TagKey<Block> TORTOISE_EGG_LAYABLE_ON = createTag("tortoise_layable_on");
 
         private static TagKey<Block> createTag(String name) {
             return TagKey.of(RegistryKeys.BLOCK, Identifier.of(BasicMobsMod.MOD_ID, name));

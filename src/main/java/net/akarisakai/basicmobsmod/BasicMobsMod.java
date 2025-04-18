@@ -1,5 +1,6 @@
 package net.akarisakai.basicmobsmod;
 
+import net.akarisakai.basicmobsmod.block.ModBlocks;
 import net.akarisakai.basicmobsmod.entity.ModEntities;
 import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
 import net.akarisakai.basicmobsmod.entity.custom.TortoiseEntity;
@@ -26,5 +27,6 @@ public class BasicMobsMod implements ModInitializer {
 		ModItemGroups.registerItemGroups();
 		ModItems.registerModItems();
 		ModEntitySpawns.addSpawns();
+		ModBlocks.registerModBlocks();
 	}
 }

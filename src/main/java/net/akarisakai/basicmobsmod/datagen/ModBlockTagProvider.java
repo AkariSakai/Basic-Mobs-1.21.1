@@ -22,5 +22,11 @@ public class ModBlockTagProvider extends FabricTagProvider.BlockTagProvider {
                 .add(Blocks.DIRT)
                 .add(Blocks.STONE)
                 .add(Blocks.CLAY);
+
+        getOrCreateTagBuilder(ModTags.Blocks.TORTOISE_EGG_LAYABLE_ON)
+                .add(Blocks.MUD)
+                .add(Blocks.DIRT)
+                .add(Blocks.GRASS_BLOCK)
+                .add(Blocks.SAND);
     }
 }

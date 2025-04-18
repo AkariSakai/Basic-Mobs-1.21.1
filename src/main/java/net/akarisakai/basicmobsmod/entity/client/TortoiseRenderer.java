@@ -1,6 +1,5 @@
 package net.akarisakai.basicmobsmod.entity.client;
 
-import net.akarisakai.basicmobsmod.BasicMobsMod;
 import net.akarisakai.basicmobsmod.entity.custom.TortoiseEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRendererFactory;
@@ -11,12 +10,12 @@ import software.bernie.geckolib.renderer.GeoEntityRenderer;
 public class TortoiseRenderer extends GeoEntityRenderer<TortoiseEntity> {
     public TortoiseRenderer(EntityRendererFactory.Context renderManager) {
         super(renderManager, new TortoiseModel());
-        this.shadowRadius = 0.9F;
+        this.shadowRadius = 0.8F;
     }
 
     @Override
     public Identifier getTexture(TortoiseEntity animatable) {
-        return Identifier.of(BasicMobsMod.MOD_ID, "textures/entity/tortoise.png");
+        return this.getGeoModel().getTextureResource(animatable);
     }
 
     @Override

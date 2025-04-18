@@ -1,6 +1,7 @@
 package net.akarisakai.basicmobsmod.item;
 
 import net.akarisakai.basicmobsmod.BasicMobsMod;
+import net.akarisakai.basicmobsmod.block.ModBlocks;
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
@@ -22,6 +23,7 @@ public class ModItemGroups {
                         entries.add(ModItems.BUCKET_OF_BABY_ALLIGATOR);
                         entries.add(ModSpawnEggs.ALLIGATOR_SPAWN_EGG);
                         entries.add(ModSpawnEggs.TORTOISE_SPAWN_EGG);
+                        entries.add(ModBlocks.TORTOISE_EGG);
                     }).build());
 
 

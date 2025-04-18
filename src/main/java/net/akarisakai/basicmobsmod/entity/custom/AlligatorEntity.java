@@ -2,6 +2,7 @@ package net.akarisakai.basicmobsmod.entity.custom;
 
 import net.akarisakai.basicmobsmod.entity.ModEntities;
 import net.akarisakai.basicmobsmod.entity.ai.alligator.*;
+import net.akarisakai.basicmobsmod.entity.core.BasicMobsGeoEntity;
 import net.akarisakai.basicmobsmod.item.ModItems;
 import net.akarisakai.basicmobsmod.util.ModTags;
 import net.minecraft.block.Block;
@@ -55,11 +56,10 @@ import software.bernie.geckolib.animation.*;
 
 import java.util.Set;
 
-public class AlligatorEntity extends AnimalEntity implements GeoEntity, Bucketable {
+public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity, Bucketable {
 
     private static final int MAX_DAILY_HUNTS = 5;
     private static final int FEEDING_SOUND_DELAY = 17;
-
     private static final int FEEDING_PARTICLE_DELAY = 25;
     private static final int FEEDING_COOLDOWN_TICKS = 30;
     private static final float HEAL_AMOUNT_FROM_FEEDING = 5.0F;

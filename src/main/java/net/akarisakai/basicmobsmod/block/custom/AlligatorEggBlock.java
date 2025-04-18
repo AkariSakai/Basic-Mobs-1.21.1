@@ -1,4 +1,4 @@
-package net.akarisakai.basicmobsmod.block;
+package net.akarisakai.basicmobsmod.block.custom;
 
 import net.akarisakai.basicmobsmod.entity.ModEntities;
 import net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity;
