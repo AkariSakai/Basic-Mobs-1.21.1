@@ -1,8 +1,12 @@
 package net.akarisakai.basicmobsmod.entity.custom;
 
+import net.akarisakai.basicmobsmod.block.ModBlocks;
 import net.akarisakai.basicmobsmod.entity.ModEntities;
 import net.akarisakai.basicmobsmod.entity.ai.alligator.*;
+import net.akarisakai.basicmobsmod.entity.ai.tortoise.EggLayingBreedGoal;
+import net.akarisakai.basicmobsmod.entity.ai.tortoise.LayEggGoal;
 import net.akarisakai.basicmobsmod.entity.core.BasicMobsGeoEntity;
+import net.akarisakai.basicmobsmod.entity.core.EggLayingAnimal;
 import net.akarisakai.basicmobsmod.item.ModItems;
 import net.akarisakai.basicmobsmod.util.ModTags;
 import net.minecraft.block.Block;
@@ -32,6 +36,7 @@ import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.recipe.Ingredient;
 import net.minecraft.registry.tag.ItemTags;
+import net.minecraft.registry.tag.TagKey;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
@@ -56,7 +61,7 @@ import software.bernie.geckolib.animation.*;
 
 import java.util.Set;
 
-public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity, Bucketable {
+public class AlligatorEntity extends AnimalEntity implements EggLayingAnimal, BasicMobsGeoEntity, Bucketable {
 
     private static final int MAX_DAILY_HUNTS = 5;
     private static final int FEEDING_SOUND_DELAY = 17;
@@ -65,6 +70,8 @@ public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity,
     private static final float HEAL_AMOUNT_FROM_FEEDING = 5.0F;
     private static final int IDLE_ANIMATION_TIMEOUT = 40;
     private static final double CHASE_ANIMATION_SPEED = 1.5;
+    private static final TrackedData<Boolean> HAS_EGG = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+    private static final TrackedData<Boolean> LAYING_EGG = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private static final TrackedData<Boolean> FROM_BUCKET = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private static final TrackedData<Boolean> BABY = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private static final TrackedData<Boolean> BASKING = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
@@ -81,6 +88,7 @@ public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity,
     private static final String NBT_LAST_HUNT_DAY = "LastHuntDay";
     private static final String NBT_IS_BABY = "IsBaby";
     private static final String NBT_HAS_BRED = "HasBredThisCycle";
+    protected static final RawAnimation DIG = RawAnimation.begin().thenLoop("dig");
     private static final TrackedData<Boolean> IS_PANICKING = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private static final TrackedData<ItemStack> HELD_ITEM = DataTracker.registerData(AlligatorEntity.class, TrackedDataHandlerRegistry.ITEM_STACK);
     private static final Set<Class<?>> EXCLUDED_HUNT_ENTITIES = Set.of(
@@ -88,12 +96,13 @@ public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity,
             SnowGolemEntity.class, AllayEntity.class, BatEntity.class, ParrotEntity.class,
             StriderEntity.class, PufferfishEntity.class, AlligatorEntity.class, BeeEntity.class
     );
+    private int layEggCounter;
     private boolean isResting = false;
     private double lastTickY;
     private float verticalDirection;
     private float bodyPitch;
     public int noVerticalMovementTicks;
-    private boolean hasBredThisCycle = false;
+    public boolean hasBredThisCycle = false;
     private int baskingCooldown = 0;
     private int dailyHuntCount = 0;
     private long lastHuntDay = -1;
@@ -119,6 +128,8 @@ public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity,
         this.goalSelector.add(1, new FleeAtLowHealthGoal(this, 2, 10.0f));
         this.goalSelector.add(2, new AlligatorAttackGoal(this, 2, true));
         this.goalSelector.add(3, new AlligatorRevengeGoal(this));
+        this.goalSelector.add(3, new EggLayingBreedGoal<>(this, 1.0));
+        this.goalSelector.add(4, new LayEggGoal<>(this, 1.0));
         this.goalSelector.add(4, new AlligatorBiteGoal(this, 2.0));
         this.goalSelector.add(5, new BaskInSunGoal(this));
         this.goalSelector.add(6, new AnimalMateGoal(this, 1.0));
@@ -270,8 +281,10 @@ public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity,
                 : 1.0;
         double smoothedSpeed = MathHelper.lerp(0.1, currentSpeed, targetSpeed);
         controller.setAnimationSpeed(smoothedSpeed);
-
-        if (event.isMoving()) {
+        if (this.isLayingEgg()) {
+            event.getController().setAnimation(DIG);
+            return PlayState.CONTINUE;
+        } else if (event.isMoving()) {
             if (this.isTouchingWater() && !isOnMud) {
                 return event.setAndContinue(RawAnimation.begin().thenLoop("swim"));
             } else if (isOnMud) {
@@ -376,6 +389,8 @@ public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity,
         builder.add(BASKING, false);
         builder.add(IS_PANICKING, false);
         builder.add(FROM_BUCKET, false);
+        builder.add(HAS_EGG, false);
+        builder.add(LAYING_EGG, false);
     }
 
     public boolean isPanicking() {
@@ -453,6 +468,13 @@ public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity,
     @Override
     public void tick() {
         super.tick();
+
+        if (this.isAlive() && this.isLayingEgg() && this.layEggCounter >= 1 && this.layEggCounter % 5 == 0) {
+            BlockPos pos = this.getBlockPos();
+            if (this.getWorld().getBlockState(pos.down()).isIn(this.getEggLayableBlockTag())) {
+                this.getWorld().syncWorldEvent(2001, pos, Block.getRawIdFromState(this.getWorld().getBlockState(pos.down())));
+            }
+        }
 
         if (this.isTouchingWater()) {
             updateBodyPitch();
@@ -578,6 +600,7 @@ public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity,
         nbt.putLong(NBT_LAST_HUNT_DAY, this.lastHuntDay);
         nbt.putBoolean(NBT_IS_BABY, this.isBaby());
         nbt.putBoolean(NBT_HAS_BRED, this.hasBredThisCycle);
+        nbt.putBoolean("HasEgg", this.hasEgg());
     }
 
     @Override
@@ -587,6 +610,50 @@ public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity,
         this.lastHuntDay = nbt.getLong(NBT_LAST_HUNT_DAY);
         this.setBaby(nbt.getBoolean(NBT_IS_BABY));
         this.hasBredThisCycle = nbt.getBoolean(NBT_HAS_BRED);
+        if (nbt.contains("HasEgg")) {
+            this.setHasEgg(nbt.getBoolean("HasEgg"));
+        }
+    }
+
+    @Override
+    public boolean hasEgg() {
+        return this.dataTracker.get(HAS_EGG);
+    }
+
+    @Override
+    public void setHasEgg(boolean hasEgg) {
+        this.dataTracker.set(HAS_EGG, hasEgg);
+    }
+
+    @Override
+    public boolean isLayingEgg() {
+        return this.dataTracker.get(LAYING_EGG);
+    }
+
+    @Override
+    public void setLayingEgg(boolean isLayingEgg) {
+        this.dataTracker.set(LAYING_EGG, isLayingEgg);
+    }
+
+    @Override
+    public int getLayEggCounter() {
+        return this.layEggCounter;
+    }
+
+    @Override
+    public void setLayEggCounter(int layEggCounter) {
+        this.layEggCounter = layEggCounter;
+    }
+
+    @Override
+    public Block getEggBlock() {
+        return ModBlocks.ALLIGATOR_EGG;
+    }
+
+    @Override
+    public TagKey<Block> getEggLayableBlockTag() {
+        // You'll need to create this tag for surfaces alligators can lay eggs on
+        return ModTags.Blocks.ALLIGATOR_EGG_LAYABLE_ON;
     }
 
     @Override
@@ -599,14 +666,20 @@ public class AlligatorEntity extends AnimalEntity implements BasicMobsGeoEntity,
         if (other == this || !(other instanceof AlligatorEntity alligator)) {
             return false;
         }
-        return this.isInLove() &&
-                alligator.isInLove() &&
+        return super.canBreedWith(other) &&
+                !this.hasEgg() &&
+                !alligator.hasEgg() &&
                 this.dailyHuntCount >= MAX_DAILY_HUNTS &&
                 alligator.dailyHuntCount >= MAX_DAILY_HUNTS &&
                 !this.hasBredThisCycle &&
                 !alligator.hasBredThisCycle &&
                 !this.isBaby() &&
                 !alligator.isBaby();
+    }
+
+    @Override
+    public boolean isInLove() {
+        return super.isInLove() && !this.hasEgg();
     }
 
     @Override

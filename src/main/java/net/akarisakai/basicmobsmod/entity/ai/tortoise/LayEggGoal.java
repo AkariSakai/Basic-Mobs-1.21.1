@@ -51,13 +51,16 @@ public class LayEggGoal<T extends AnimalEntity & EggLayingAnimal> extends MoveTo
                 World world = this.animal.getWorld();
                 world.playSound(null, blockPos, SoundEvents.ENTITY_TURTLE_LAY_EGG, SoundCategory.BLOCKS, 0.3f, 0.9f + world.random.nextFloat() * 0.2f);
 
-                // Place the egg block
                 world.setBlockState(this.targetPos.up(), this.animal.getEggBlock().getDefaultState()
                         .with(TurtleEggBlock.EGGS, this.animal.getRandom().nextInt(4) + 1), 3);
 
                 this.animal.setHasEgg(false);
                 this.animal.setLayingEgg(false);
                 this.animal.setLoveTicks(600);
+
+                if (this.animal instanceof net.akarisakai.basicmobsmod.entity.custom.AlligatorEntity alligator) {
+                    alligator.hasBredThisCycle = true;
+                }
             }
 
             if (this.animal.isLayingEgg()) {

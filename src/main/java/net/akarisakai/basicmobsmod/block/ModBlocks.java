@@ -1,6 +1,7 @@
 package net.akarisakai.basicmobsmod.block;
 
 import net.akarisakai.basicmobsmod.BasicMobsMod;
+import net.akarisakai.basicmobsmod.block.custom.AlligatorEggBlock;
 import net.akarisakai.basicmobsmod.block.custom.TortoiseEggBlock;
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
@@ -14,6 +15,10 @@ import net.minecraft.util.Identifier;
 public class ModBlocks {
     public static final Block TORTOISE_EGG = registerBlock("tortoise_egg",
             new TortoiseEggBlock(AbstractBlock.Settings.create().strength(0.5F).sounds(BlockSoundGroup.STONE)
+                    .nonOpaque().ticksRandomly()));
+
+    public static final Block ALLIGATOR_EGG = registerBlock("alligator_egg",
+            new AlligatorEggBlock(AbstractBlock.Settings.create().strength(0.5F).sounds(BlockSoundGroup.STONE)
                     .nonOpaque().ticksRandomly()));
 
     private static Block registerBlock(String name, Block block) {

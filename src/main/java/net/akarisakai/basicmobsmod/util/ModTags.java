@@ -21,6 +21,7 @@ public class ModTags {
     public static class Blocks {
         public static final TagKey<Block> ALLIGATORS_SPAWNABLE_ON = createTag("alligators_spawnable_on");
         public static final TagKey<Block> TORTOISE_EGG_LAYABLE_ON = createTag("tortoise_layable_on");
+        public static final TagKey<Block> ALLIGATOR_EGG_LAYABLE_ON = createTag("alligator_layable_on");
 
         private static TagKey<Block> createTag(String name) {
             return TagKey.of(RegistryKeys.BLOCK, Identifier.of(BasicMobsMod.MOD_ID, name));

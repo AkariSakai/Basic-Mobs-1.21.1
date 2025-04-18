@@ -16,14 +16,15 @@ public class ModItemGroups {
             FabricItemGroup.builder().icon(() -> new ItemStack(ModItems.RAW_ALLIGATOR_MEAT))
                     .displayName(Text.translatable("itemgroup.basicmobsmod.basic_mobs_item"))
                     .entries((displayContext, entries) -> {
+                        entries.add(ModItems.SCUTE_REINFORCED_SHIELD);
                         entries.add(ModItems.RAW_ALLIGATOR_MEAT);
                         entries.add(ModItems.COOKED_ALLIGATOR_MEAT);
                         entries.add(ModItems.ALLIGATOR_SCUTE);
-                        entries.add(ModItems.SCUTE_REINFORCED_SHIELD);
                         entries.add(ModItems.BUCKET_OF_BABY_ALLIGATOR);
+                        entries.add(ModBlocks.TORTOISE_EGG);
+                        entries.add(ModBlocks.ALLIGATOR_EGG);
                         entries.add(ModSpawnEggs.ALLIGATOR_SPAWN_EGG);
                         entries.add(ModSpawnEggs.TORTOISE_SPAWN_EGG);
-                        entries.add(ModBlocks.TORTOISE_EGG);
                     }).build());
 
 

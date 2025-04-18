@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.entity.SpawnLocationTypes;
 import net.minecraft.entity.SpawnRestriction;
+import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.biome.BiomeKeys;
 
@@ -21,11 +22,27 @@ public class ModEntitySpawns {
                 2
         );
 
+        BiomeModifications.addSpawn(
+                BiomeSelectors.includeByKey(BiomeKeys.SAVANNA, BiomeKeys.SAVANNA_PLATEAU),
+                SpawnGroup.CREATURE,
+                ModEntities.TORTOISE,
+                40,
+                1,
+                2
+        );
+
         SpawnRestriction.register(
                 ModEntities.ALLIGATOR,
                 SpawnLocationTypes.IN_WATER,
                 Heightmap.Type.MOTION_BLOCKING_NO_LEAVES,
                 AlligatorEntity::canSpawn
+        );
+
+        SpawnRestriction.register(
+                ModEntities.TORTOISE,
+                SpawnLocationTypes.ON_GROUND,
+                Heightmap.Type.MOTION_BLOCKING_NO_LEAVES,
+                AnimalEntity::isValidNaturalSpawn
         );
     }
 }

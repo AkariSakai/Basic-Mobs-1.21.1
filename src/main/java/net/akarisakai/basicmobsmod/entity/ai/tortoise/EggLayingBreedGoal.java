@@ -30,7 +30,6 @@ public class EggLayingBreedGoal<T extends AnimalEntity & EggLayingAnimal> extend
 
         if (serverPlayer != null) {
             serverPlayer.incrementStat(Stats.ANIMALS_BRED);
-            // In newer versions you would add a criterion trigger here
         }
 
         this.animal.setHasEgg(true);
